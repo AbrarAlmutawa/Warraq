@@ -3,9 +3,9 @@ import re
 
 from docx import Document
 from docx.enum.text import WD_COLOR_INDEX
+from models import ValidationIssue
 
-
-SAMPLE_PATH = Path(__file__).parent / "samples" / "demo.docx"
+SAMPLE_PATH = Path(__file__).parent / "samples" / "messy_demo.docx"
 
 OUTPUT_PATH = (
     Path(__file__).parent
@@ -49,32 +49,36 @@ def highlight_paragraph(paragraph):
 def create_highlighted_docx(
     input_path,
     output_path,
-    issues: list[dict],
+    issues: list[ValidationIssue | dict],
 ):
     """
     Create an editable copy of the original DOCX and
-    highlight paragraphs linked to validation issues.
-
-    Example issue:
-    {
-        "issue": "Abstract exceeds 250 words",
-        "block_ids": ["paragraph_4"]
-    }
+    highlight paragraphs linked to failed/warning
+    journal validation issues.
     """
 
     doc = Document(input_path)
 
     highlighted_blocks = set()
 
-    for issue in issues:
-        block_ids = issue.get(
-            "block_ids",
-            []
+    for raw_issue in issues:
+
+        # Accept either a ValidationIssue object
+        # or a normal dictionary from an API response
+        issue = (
+            raw_issue
+            if isinstance(raw_issue, ValidationIssue)
+            else ValidationIssue.model_validate(
+                raw_issue
+            )
         )
 
-        for block_id in block_ids:
+        # Passed rules do not need highlighting
+        if issue.status == "pass":
+            continue
 
-            # Do not highlight the same block twice
+        for block_id in issue.block_ids:
+
             if block_id in highlighted_blocks:
                 continue
 
@@ -82,7 +86,6 @@ def create_highlighted_docx(
                 get_paragraph_index(block_id)
             )
 
-            # Safety check
             if paragraph_index >= len(doc.paragraphs):
                 continue
 
@@ -102,16 +105,38 @@ def create_highlighted_docx(
 if __name__ == "__main__":
 
     demo_issues = [
-        {
-            "issue": (
-                "Abstract exceeds the "
-                "250-word journal limit"
-            ),
-            "block_ids": [
-                "paragraph_4"
-            ],
-        }
-    ]
+    {
+        "rule": "abstract_max_words",
+        "status": "fail",
+        "actual": 280,
+        "limit": 250,
+        "message": (
+            "Abstract exceeds the journal "
+            "limit by 30 words."
+        ),
+        "block_ids": [
+            "paragraph_4"
+        ],
+        "source_url": (
+            "https://example-journal.com/"
+            "author-guidelines"
+        ),
+    },
+    {
+        "rule": "maximum_tables",
+        "status": "pass",
+        "actual": 2,
+        "limit": 4,
+        "message": (
+            "Table count is within "
+            "the journal limit."
+        ),
+        "block_ids": [
+            "paragraph_14",
+            "paragraph_20",
+        ],
+    },
+]
 
     result_path = create_highlighted_docx(
         SAMPLE_PATH,

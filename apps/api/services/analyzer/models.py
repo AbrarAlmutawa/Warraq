@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Literal
 
 
 class SectionInfo(BaseModel):
@@ -16,7 +17,21 @@ class Block(BaseModel):
     word_count: int
     paragraph_index: int | None = None
 
+class ValidationIssue(BaseModel):
+    rule: str
+    status: Literal["pass", "fail", "warning"]
 
+    actual: int | str | bool | None = None
+    limit: int | str | bool | None = None
+
+    message: str
+
+    block_ids: list[str] = Field(
+        default_factory=list
+    )
+
+    source_url: str | None = None
+    
 class ManuscriptParsedData(BaseModel):
     title: str
     title_word_count: int
