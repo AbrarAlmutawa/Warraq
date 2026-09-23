@@ -6,7 +6,68 @@ from docx import Document
 from models import ManuscriptParsedData, SectionInfo, Block
 
 
-SAMPLE_PATH = Path(__file__).parent / "samples" / "demo.docx"
+# Change this back to demo.docx after the messy-document test if you want.
+SAMPLE_PATH = Path(__file__).parent / "samples" / "messy_demo.docx"
+
+
+# -------------------------------------------------------------------
+# Heading detection
+# -------------------------------------------------------------------
+
+HEADING_ALIASES = {
+    "abstract": "Abstract",
+    "الملخص": "Abstract",
+
+    "introduction": "Introduction",
+    "intro": "Introduction",
+    "المقدمة": "Introduction",
+
+    "method": "Methodology",
+    "methods": "Methodology",
+    "methodology": "Methodology",
+    "materials and methods": "Methodology",
+    "materials & methods": "Methodology",
+    "المنهجية": "Methodology",
+    "الطريقة": "Methodology",
+
+    "result": "Results",
+    "results": "Results",
+    "النتائج": "Results",
+
+    "discussion": "Discussion",
+    "المناقشة": "Discussion",
+
+    "conclusion": "Conclusion",
+    "conclusions": "Conclusion",
+    "الخاتمة": "Conclusion",
+
+    "data availability statement": "Data Availability Statement",
+    "data availability": "Data Availability Statement",
+    "بيان إتاحة البيانات": "Data Availability Statement",
+
+    "references": "References",
+    "reference": "References",
+    "bibliography": "References",
+    "المراجع": "References",
+
+    "acknowledgements": "Acknowledgements",
+    "acknowledgments": "Acknowledgements",
+    "شكر وتقدير": "Acknowledgements",
+}
+
+
+BODY_EXCLUDED_SECTIONS = {
+    "abstract",
+    "references",
+    "bibliography",
+    "data availability statement",
+    "acknowledgements",
+    "acknowledgments",
+    "الملخص",
+    "المراجع",
+    "بيان إتاحة البيانات",
+    "شكر وتقدير",
+}
 
 
 def count_words(text: str) -> int:
@@ -17,12 +78,106 @@ def count_words(text: str) -> int:
     return len(words)
 
 
+def normalize_heading_name(text: str) -> str:
+    """
+    Remove common numbering from a heading.
+
+    Examples:
+    '1. Introduction' -> 'Introduction'
+    '3 Results' -> 'Results'
+    '3.1 Data Collection' -> 'Data Collection'
+    """
+    text = text.strip()
+
+    cleaned = re.sub(
+        r"^\s*\d+(?:\.\d+)*[\.\)]?\s*",
+        "",
+        text,
+    )
+
+    return cleaned.strip()
+
+
+def _heading_key(text: str) -> str:
+    """
+    Normalize heading text for matching.
+    """
+    text = normalize_heading_name(text)
+    text = text.strip().lower()
+
+    # Remove harmless punctuation around a heading.
+    text = re.sub(r"[:：\-–—]+$", "", text).strip()
+
+    # Normalize repeated whitespace.
+    text = re.sub(r"\s+", " ", text)
+
+    return text
+
+
+def detect_heading(paragraph) -> str | None:
+    """
+    Detect a section heading even when the researcher did not use
+    Word's Heading styles.
+
+    Priority:
+    1. Known academic heading text, regardless of Word style.
+    2. Any paragraph using a Word Heading style.
+    """
+    text = paragraph.text.strip()
+
+    if not text:
+        return None
+
+    key = _heading_key(text)
+
+    # Strong fallback for messy manuscripts:
+    # recognize known academic section names by their text.
+    if key in HEADING_ALIASES:
+        return HEADING_ALIASES[key]
+
+    style_name = (
+        paragraph.style.name.lower()
+        if paragraph.style
+        else ""
+    )
+
+    # If Word explicitly says it is a heading, keep it even if it is
+    # not one of our standard section names.
+    if style_name.startswith("heading"):
+        cleaned = normalize_heading_name(text).strip()
+        return cleaned if cleaned else None
+
+    return None
+
+
+def is_keywords_line(text: str) -> bool:
+    """
+    Recognize common keyword-label formats.
+
+    Examples:
+    Keywords: AI; writing
+    Keywords - AI; writing
+    الكلمات المفتاحية: الذكاء الاصطناعي؛ البحث
+    """
+    return bool(
+        re.match(
+            r"^\s*(keywords?|الكلمات\s+المفتاحية)\s*[:：\-–—]",
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
+
+
+# -------------------------------------------------------------------
+# Core extraction
+# -------------------------------------------------------------------
+
 def extract_title(doc: Document) -> str:
     """
     Extract the manuscript title.
 
-    First, look for a paragraph using Word's 'Title' style.
-    If no Title style exists, use the first non-empty paragraph.
+    First use Word's Title style.
+    Fallback to the first non-empty paragraph.
     """
     for paragraph in doc.paragraphs:
         text = paragraph.text.strip()
@@ -45,10 +200,8 @@ def extract_title(doc: Document) -> str:
 
 def extract_abstract(doc: Document) -> str:
     """
-    Extract the abstract from the manuscript.
-
-    Start after a heading called 'Abstract' or 'الملخص'
-    and stop when the next heading begins.
+    Extract the abstract even when 'Abstract' is not using Heading 1.
+    Stop when the next recognized section heading begins.
     """
     collecting = False
     abstract_parts = []
@@ -59,20 +212,17 @@ def extract_abstract(doc: Document) -> str:
         if not text:
             continue
 
-        style_name = paragraph.style.name.lower() if paragraph.style else ""
+        detected_heading = detect_heading(paragraph)
 
-        if text.lower() in {"abstract", "الملخص"}:
+        if detected_heading == "Abstract":
             collecting = True
             continue
 
-        if collecting and style_name.startswith("heading"):
+        if collecting and detected_heading is not None:
             break
 
         if collecting:
-            if text.lower().startswith("keywords:"):
-                continue
-
-            if text.startswith("الكلمات المفتاحية"):
+            if is_keywords_line(text):
                 continue
 
             abstract_parts.append(text)
@@ -80,29 +230,45 @@ def extract_abstract(doc: Document) -> str:
     return "\n".join(abstract_parts)
 
 
-def normalize_heading_name(text: str) -> str:
+def extract_keywords(doc: Document) -> list[str]:
     """
-    Remove numbering from section headings.
-
-    Examples:
-    '1. Introduction' -> 'Introduction'
-    '2 Methodology' -> 'Methodology'
-    '3.1 Data Collection' -> 'Data Collection'
+    Extract manuscript keywords from common label formats.
     """
-    text = text.strip()
-
-    cleaned = re.sub(
-        r"^\s*\d+(?:\.\d+)*[\.\)]?\s*",
-        "",
-        text,
+    pattern = re.compile(
+        r"^\s*(?:keywords?|الكلمات\s+المفتاحية)\s*"
+        r"[:：\-–—]\s*(.+)$",
+        flags=re.IGNORECASE,
     )
 
-    return cleaned.strip()
+    for paragraph in doc.paragraphs:
+        text = paragraph.text.strip()
+
+        if not text:
+            continue
+
+        match = pattern.match(text)
+
+        if match:
+            keyword_text = match.group(1).strip()
+
+            keywords = re.split(
+                r"[;؛,،]",
+                keyword_text,
+            )
+
+            return [
+                keyword.strip()
+                for keyword in keywords
+                if keyword.strip()
+            ]
+
+    return []
 
 
 def extract_sections(doc: Document) -> dict[str, str]:
     """
-    Extract manuscript sections using Word heading styles.
+    Extract sections using both Word styles and text-based fallback
+    heading detection.
     """
     sections = {}
     current_section = None
@@ -114,42 +280,43 @@ def extract_sections(doc: Document) -> dict[str, str]:
         if not text:
             continue
 
-        style_name = (
-            paragraph.style.name.lower()
-            if paragraph.style
-            else ""
-        )
+        detected_heading = detect_heading(paragraph)
 
-        if style_name.startswith("heading"):
+        if detected_heading is not None:
             if current_section is not None:
-                sections[current_section] = "\n".join(current_parts).strip()
+                sections[current_section] = "\n".join(
+                    current_parts
+                ).strip()
 
-            current_section = normalize_heading_name(text)
+            current_section = detected_heading
             current_parts = []
             continue
 
         if current_section is not None:
             if (
-                current_section.lower() == "abstract"
-                and (
-                    text.lower().startswith("keywords:")
-                    or text.startswith("الكلمات المفتاحية")
-                )
+                current_section == "Abstract"
+                and is_keywords_line(text)
             ):
                 continue
 
             current_parts.append(text)
 
     if current_section is not None:
-        sections[current_section] = "\n".join(current_parts).strip()
+        sections[current_section] = "\n".join(
+            current_parts
+        ).strip()
 
     return sections
 
 
+# -------------------------------------------------------------------
+# References
+# -------------------------------------------------------------------
+
 def looks_like_reference(text: str) -> bool:
     """
     Check whether a paragraph looks like a bibliography reference.
-    Supports common author-year and numbered reference formats.
+    Supports common author-year and numbered formats.
     """
     text = text.strip()
 
@@ -186,31 +353,19 @@ def extract_references(doc: Document) -> list[str]:
     references = []
     collecting = False
 
-    reference_headings = {
-        "references",
-        "bibliography",
-        "المراجع",
-    }
-
     for paragraph in doc.paragraphs:
         text = paragraph.text.strip()
 
         if not text:
             continue
 
-        style_name = (
-            paragraph.style.name.lower()
-            if paragraph.style
-            else ""
-        )
+        detected_heading = detect_heading(paragraph)
 
-        normalized_heading = normalize_heading_name(text).lower()
-
-        if normalized_heading in reference_headings:
+        if detected_heading == "References":
             collecting = True
             continue
 
-        if collecting and style_name.startswith("heading"):
+        if collecting and detected_heading is not None:
             break
 
         if collecting and looks_like_reference(text):
@@ -219,64 +374,21 @@ def extract_references(doc: Document) -> list[str]:
     return references
 
 
-BODY_EXCLUDED_SECTIONS = {
-    "abstract",
-    "references",
-    "bibliography",
-    "data availability statement",
-    "acknowledgements",
-    "acknowledgments",
-    "الملخص",
-    "المراجع",
-    "بيان إتاحة البيانات",
-    "شكر وتقدير",
-}
-
-
-def extract_keywords(doc: Document) -> list[str]:
-    """
-    Extract manuscript keywords.
-    """
-    prefixes = (
-        "keywords:",
-        "keywords：",
-        "الكلمات المفتاحية:",
-        "الكلمات المفتاحية：",
-    )
-
-    for paragraph in doc.paragraphs:
-        text = paragraph.text.strip()
-
-        if not text:
-            continue
-
-        lower_text = text.lower()
-
-        for prefix in prefixes:
-            if lower_text.startswith(prefix.lower()):
-                keyword_text = text[len(prefix):].strip()
-
-                keywords = re.split(r"[;؛,،]", keyword_text)
-
-                return [
-                    keyword.strip()
-                    for keyword in keywords
-                    if keyword.strip()
-                ]
-
-    return []
-
+# -------------------------------------------------------------------
+# Counts
+# -------------------------------------------------------------------
 
 def count_tables(doc: Document) -> int:
     """
-    Count actual Word tables in the manuscript.
+    Count actual Word tables.
     """
     return len(doc.tables)
 
 
 def count_figures(doc: Document) -> int:
     """
-    Count inline images/shapes in the manuscript.
+    Count inline Word images/shapes.
+    Good enough for the Warraq MVP.
     """
     return len(doc.inline_shapes)
 
@@ -285,7 +397,7 @@ def calculate_main_text_word_count(
     sections: dict[str, str]
 ) -> int:
     """
-    Count words in the main research body.
+    Count the main research body while excluding metadata sections.
     """
     total = 0
 
@@ -300,15 +412,20 @@ def calculate_main_text_word_count(
     return total
 
 
+# -------------------------------------------------------------------
+# Traceable blocks
+# -------------------------------------------------------------------
+
 def build_blocks(doc: Document) -> list[Block]:
     """
     Convert manuscript paragraphs into traceable blocks.
 
-    Each block keeps the original Word paragraph index so
-    Warraq can later highlight the exact location.
+    Every block preserves the original Word paragraph index.
     """
     blocks = []
     current_section = None
+    title = extract_title(doc)
+    title_assigned = False
 
     for index, paragraph in enumerate(doc.paragraphs):
         text = paragraph.text.strip()
@@ -316,14 +433,10 @@ def build_blocks(doc: Document) -> list[Block]:
         if not text:
             continue
 
-        style_name = (
-            paragraph.style.name.lower()
-            if paragraph.style
-            else ""
-        )
+        detected_heading = detect_heading(paragraph)
 
-        if style_name.startswith("heading"):
-            current_section = normalize_heading_name(text)
+        if detected_heading is not None:
+            current_section = detected_heading
 
             blocks.append(
                 Block(
@@ -337,13 +450,12 @@ def build_blocks(doc: Document) -> list[Block]:
             )
             continue
 
-        if style_name == "title":
+        # Title can still be detected when its Word style is Normal.
+        if not title_assigned and text == title:
             block_type = "title"
+            title_assigned = True
 
-        elif (
-            text.lower().startswith("keywords:")
-            or text.startswith("الكلمات المفتاحية")
-        ):
+        elif is_keywords_line(text):
             block_type = "keywords"
 
         elif re.match(
@@ -361,9 +473,7 @@ def build_blocks(doc: Document) -> list[Block]:
             block_type = "figure_caption"
 
         elif (
-            current_section
-            and current_section.lower()
-            in {"references", "bibliography", "المراجع"}
+            current_section == "References"
             and looks_like_reference(text)
         ):
             block_type = "reference"
@@ -385,9 +495,13 @@ def build_blocks(doc: Document) -> list[Block]:
     return blocks
 
 
+# -------------------------------------------------------------------
+# Main parser contract
+# -------------------------------------------------------------------
+
 def parse_docx(path) -> ManuscriptParsedData:
     """
-    Parse a DOCX manuscript and return structured manuscript data.
+    Parse a DOCX manuscript and return structured Warraq data.
     """
     doc = Document(path)
 
@@ -403,16 +517,11 @@ def parse_docx(path) -> ManuscriptParsedData:
 
     raw_sections = extract_sections(doc)
 
-    # Extract references first so the References section can be cleaned
+    # Clean References so non-reference trailing notes are excluded.
     references = extract_references(doc)
 
-    for section_name in list(raw_sections.keys()):
-        if section_name.lower() in {
-            "references",
-            "bibliography",
-            "المراجع",
-        }:
-            raw_sections[section_name] = "\n".join(references)
+    if "References" in raw_sections:
+        raw_sections["References"] = "\n".join(references)
 
     blocks = build_blocks(doc)
 
@@ -425,10 +534,8 @@ def parse_docx(path) -> ManuscriptParsedData:
         if block.type in {"heading", "keywords"}:
             continue
 
-        # Inside References, only keep actual reference blocks
         if (
-            block.section.lower()
-            in {"references", "bibliography", "المراجع"}
+            block.section == "References"
             and block.type != "reference"
         ):
             continue
@@ -478,10 +585,11 @@ def parse_docx(path) -> ManuscriptParsedData:
     )
 
 
+# -------------------------------------------------------------------
+# Debugging
+# -------------------------------------------------------------------
+
 def inspect_docx(path=SAMPLE_PATH):
-    """
-    Print the raw Word structure for debugging.
-    """
     doc = Document(path)
 
     print("\nPARAGRAPHS")
@@ -506,80 +614,23 @@ def inspect_docx(path=SAMPLE_PATH):
 if __name__ == "__main__":
     inspect_docx()
 
-    print("\nWORD COUNT TEST")
+    parsed = parse_docx(SAMPLE_PATH)
+
+    print("\nPARSER SUMMARY")
     print("=" * 80)
-
-    english_test = "Artificial intelligence improves academic writing."
-    arabic_test = "يساعد الذكاء الاصطناعي الباحثين في الكتابة الأكاديمية."
-
-    print("English:", count_words(english_test))
-    print("Arabic:", count_words(arabic_test))
-
-    doc = Document(SAMPLE_PATH)
-
-    full_text = "\n".join(
-        paragraph.text
-        for paragraph in doc.paragraphs
-        if paragraph.text.strip()
+    print("Title:", parsed.title)
+    print("Title words:", parsed.title_word_count)
+    print("Abstract words:", parsed.abstract_word_count)
+    print("Keywords:", parsed.keywords)
+    print("Main text words:", parsed.main_text_word_count)
+    print("References:", parsed.reference_count)
+    print("Tables:", parsed.table_count)
+    print("Figures:", parsed.figure_count)
+    print(
+        "Sections:",
+        [section.name for section in parsed.sections],
     )
-
-    print("Full manuscript words:", count_words(full_text))
-
-    title = extract_title(doc)
-
-    print("\nTITLE EXTRACTION")
-    print("=" * 80)
-    print("Title:", title)
-    print("Title word count:", count_words(title))
-
-    abstract = extract_abstract(doc)
-
-    print("\nABSTRACT EXTRACTION")
-    print("=" * 80)
-    print("Abstract:")
-    print(abstract)
-    print()
-    print("Abstract word count:", count_words(abstract))
-
-    sections = extract_sections(doc)
-
-    print("\nSECTION EXTRACTION")
-    print("=" * 80)
-
-    for section_name, section_text in sections.items():
-        print(
-            f"{section_name}: "
-            f"{count_words(section_text)} words"
-        )
-
-    references = extract_references(doc)
-    main_text_word_count = calculate_main_text_word_count(sections)
-
-    print("\nMANUSCRIPT METRICS")
-    print("=" * 80)
-    print("Main text word count:", main_text_word_count)
-    print("Reference count:", len(references))
-
-    print("\nREFERENCES FOUND")
-    print("=" * 80)
-
-    for index, reference in enumerate(references, start=1):
-        print(f"{index}. {reference[:100]}")
-
-    keywords = extract_keywords(doc)
-    table_count = count_tables(doc)
-    figure_count = count_figures(doc)
-
-    print("\nDOCUMENT FEATURES")
-    print("=" * 80)
-    print("Keywords:", keywords)
-    print("Keyword count:", len(keywords))
-    print("Table count:", table_count)
-    print("Figure count:", figure_count)
 
     print("\nFINAL PARSED DATA")
     print("=" * 80)
-
-    parsed = parse_docx(SAMPLE_PATH)
-
     print(parsed.model_dump_json(indent=2))
