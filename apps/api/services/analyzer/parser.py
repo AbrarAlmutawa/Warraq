@@ -3,8 +3,10 @@ import re
 
 from docx import Document
 
-from models import ManuscriptParsedData, SectionInfo, Block
-
+try:
+    from .models import ManuscriptParsedData, SectionInfo, Block
+except ImportError:
+    from models import ManuscriptParsedData, SectionInfo, Block
 
 # Change this back to demo.docx after the messy-document test if you want.
 SAMPLE_PATH = Path(__file__).parent / "samples" / "messy_demo.docx"
