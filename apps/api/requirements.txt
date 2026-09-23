@@ -1,3 +1,6 @@
 python-docx
 pydantic
 pytest
+fastapi
+uvicorn
+python-multipart
