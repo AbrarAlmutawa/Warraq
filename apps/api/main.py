@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from routers import manuscripts
+from routers import manuscripts, match
 
 
 app = FastAPI(
@@ -10,6 +10,7 @@ app = FastAPI(
 
 
 app.include_router(manuscripts.router)
+app.include_router(match.router)
 
 
 @app.get("/")

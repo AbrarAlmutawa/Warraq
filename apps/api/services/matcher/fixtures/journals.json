@@ -1,0 +1,30 @@
+[
+  {
+    "journal_id": "fixture-ai-001",
+    "name": "Fixture Journal of Artificial Intelligence",
+    "aims": "Research advancing artificial intelligence methods and applications.",
+    "scope": "Machine learning, natural language processing, computer vision and intelligent systems.",
+    "topics": ["artificial intelligence", "machine learning", "natural language processing", "computer vision"],
+    "accepted_article_types": ["research_article", "review"],
+    "languages": ["en"],
+    "access_model": "open_access",
+    "apc": 1000,
+    "apc_currency": "USD",
+    "publisher": "Fixture Publisher",
+    "source_url": null
+  },
+  {
+    "journal_id": "fixture-agri-001",
+    "name": "Fixture Journal of Agricultural Systems",
+    "aims": "Research on agriculture, crops and sustainable food systems.",
+    "scope": "Crop science, precision agriculture, soil, irrigation and agricultural technology.",
+    "topics": ["agriculture", "crop science", "precision agriculture", "irrigation"],
+    "accepted_article_types": ["research_article", "review"],
+    "languages": ["en"],
+    "access_model": "hybrid",
+    "apc": 2200,
+    "apc_currency": "USD",
+    "publisher": "Fixture Publisher",
+    "source_url": null
+  }
+]
