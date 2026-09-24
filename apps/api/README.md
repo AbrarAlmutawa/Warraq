@@ -27,10 +27,28 @@ uvicorn main:app --reload
 pytest
 ```
 
-## Journal agent (local loop)
+## Endpoints
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| POST | `/manuscripts/upload` | Parse a DOCX, save it, return `manuscript_id` (same file again = cached) |
+| GET | `/manuscripts/{manuscript_id}` | The saved parse |
+| GET | `/journals` | All journals as summary cards |
+| GET | `/journals/review-queue` | Journals the agent flagged for human review |
+| GET | `/journals/{journal_id}` | One journal's full requirements |
+| POST | `/match` | `{manuscript_id, preferences}` → ranked journals |
+
+## Database
+
+A SQLite file at `apps/api/data/warraq.db` (ignored by Git). On first start, three
+**demo** journals (`is_demo: true`, invented rules) are loaded so the app works before
+real journals exist. Delete the file to start fresh.
+
+## Journal agent
 
 ```bash
-python -m services.journal_agent.run_local
+python -m services.journal_agent.run_local   # try extraction, results stay in memory
+python -m db.run_agent                       # scrape db/seed/journal_sources.json into the database
 ```
 
 ## Conventions

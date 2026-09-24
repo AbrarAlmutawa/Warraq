@@ -78,7 +78,18 @@ Differences to know:
 5. **File formats**: backend parses DOCX only; the frontend accepts PDF, TeX and ZIP.
    Either restrict the upload screen to DOCX for the demo, or plan PDF parsing.
 
-## 5. Rule for changing a contract
+## 5. Endpoints (implemented)
+
+- `POST /manuscripts/upload` → `ManuscriptUploadResponse`
+- `GET /manuscripts/{manuscript_id}` → `ManuscriptRecord`
+- `GET /journals` → `JournalSummary[]`
+- `GET /journals/review-queue` → `ReviewQueueItem[]`
+- `GET /journals/{journal_id}` → `JournalRequirementSpec`
+- `POST /match` with `{manuscript_id, preferences}` → `JournalMatchView[]`
+  (**changed:** it no longer takes the whole paper in the body)
+- `POST /validate` → `ValidationReport` (next)
+
+## 6. Rule for changing a contract
 
 Add new fields as Optional with a default. Never rename or remove a field without telling
 everyone who reads it (see the table in section 2).

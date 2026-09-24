@@ -19,3 +19,5 @@ Thumbs.db
 
 # Test/user manuscripts
 apps/api/services/analyzer/samples/*.docx
+# Local SQLite database
+apps/api/data/

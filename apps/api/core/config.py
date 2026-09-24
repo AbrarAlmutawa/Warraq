@@ -41,6 +41,19 @@ class Settings:
     llm_timeout_seconds: float = field(
         default_factory=lambda: float(os.getenv("LLM_TIMEOUT_SECONDS", "60"))
     )
+    # SQLite file for manuscripts, journals and the review queue.
+    database_path: str = field(
+        default_factory=lambda: os.getenv(
+            "DATABASE_PATH", str(_API_DIR / "data" / "warraq.db")
+        )
+    )
+    # Load the demo journals into an empty database on startup.
+    seed_demo_journals: bool = field(
+        default_factory=lambda: os.getenv("SEED_DEMO_JOURNALS", "true").lower() == "true"
+    )
+    max_upload_mb: int = field(
+        default_factory=lambda: int(os.getenv("MAX_UPLOAD_MB", "25"))
+    )
 
 
 @lru_cache
