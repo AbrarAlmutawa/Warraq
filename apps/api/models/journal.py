@@ -30,6 +30,18 @@ class HardConstraint(BaseModel):
     required_citation_style: CitationStyle | None = None
     required_template: str | None = None  # "latex" | "word" | "either"
 
+    # --- Added by S4 (contracts v1). All Optional, so existing code is unaffected. ---
+    max_abstract_words: int | None = None
+    keyword_range: tuple[int, int] | None = None
+    max_tables: int | None = None
+    max_figures: int | None = None
+    highlights_range: tuple[int, int] | None = None  # e.g. (3, 5) bullet points
+    # Statements the journal requires, using these ids:
+    # "data_availability", "conflict_of_interest", "funding", "ethics"
+    required_statements: list[str] = Field(default_factory=list)
+    # Section names the journal requires, e.g. ["introduction", "methods", "results", "discussion"]
+    required_sections: list[str] = Field(default_factory=list)
+
 
 class JournalRequirementSpec(BaseModel):
     """
@@ -54,6 +66,19 @@ class JournalRequirementSpec(BaseModel):
     languages: list[str] = Field(default_factory=list)
     access_model: str
     last_scraped_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # --- Added by S4 (contracts v1). All Optional with defaults. ---
+    short_name: str | None = None  # e.g. "PLOS ONE", "IEEE Access"
+    aims: str = ""  # used by the matcher together with scope_description
+    indexes: list[str] = Field(default_factory=list)  # e.g. ["scopus", "wos"]
+    # Per-field confidence from extraction, keyed by field name
+    # (same keys as the extraction tool). Lets the UI show confidence per rule.
+    field_confidences: dict[str, float] = Field(default_factory=dict)
+    # Short quote from the guideline page that supports each field, keyed by
+    # field name. Shown to the researcher as "source" for every rule.
+    field_excerpts: dict[str, str] = Field(default_factory=dict)
+    # True for hand-made demo journals; False for journals scraped from real pages.
+    is_demo: bool = False
 
 
 class ReviewQueueItem(BaseModel):
