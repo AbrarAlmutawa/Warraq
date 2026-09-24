@@ -8,7 +8,7 @@ try:
 except ImportError:
     from models import ManuscriptParsedData, SectionInfo, Block
 
-# Change this back to demo.docx after the messy-document test if you want.
+
 SAMPLE_PATH = Path(__file__).parent / "samples" / "messy_demo.docx"
 
 
@@ -107,10 +107,7 @@ def _heading_key(text: str) -> str:
     text = normalize_heading_name(text)
     text = text.strip().lower()
 
-    # Remove harmless punctuation around a heading.
     text = re.sub(r"[:：\-–—]+$", "", text).strip()
-
-    # Normalize repeated whitespace.
     text = re.sub(r"\s+", " ", text)
 
     return text
@@ -132,8 +129,6 @@ def detect_heading(paragraph) -> str | None:
 
     key = _heading_key(text)
 
-    # Strong fallback for messy manuscripts:
-    # recognize known academic section names by their text.
     if key in HEADING_ALIASES:
         return HEADING_ALIASES[key]
 
@@ -143,13 +138,40 @@ def detect_heading(paragraph) -> str | None:
         else ""
     )
 
-    # If Word explicitly says it is a heading, keep it even if it is
-    # not one of our standard section names.
     if style_name.startswith("heading"):
         cleaned = normalize_heading_name(text).strip()
         return cleaned if cleaned else None
 
     return None
+
+
+def get_numbered_heading_depth(text: str) -> int:
+    """
+    Return the depth of a numbered heading.
+
+    Examples:
+    2. Methods -> 1
+    2.1 Participants -> 2
+    2.1.3 Analysis -> 3
+    Introduction -> 0
+    """
+    match = re.match(
+        r"^\s*(\d+(?:\.\d+)*)[\.\)]?\s+",
+        text.strip(),
+    )
+
+    if not match:
+        return 0
+
+    return match.group(1).count(".") + 1
+
+
+def is_subsection_heading(paragraph) -> bool:
+    """
+    True for numbered subsection headings such as
+    2.1 Participants or 2.2 Procedure.
+    """
+    return get_numbered_heading_depth(paragraph.text) >= 2
 
 
 def is_keywords_line(text: str) -> bool:
@@ -269,8 +291,10 @@ def extract_keywords(doc: Document) -> list[str]:
 
 def extract_sections(doc: Document) -> dict[str, str]:
     """
-    Extract sections using both Word styles and text-based fallback
-    heading detection.
+    Extract manuscript sections.
+
+    Numbered subsections such as 2.1 and 2.2 stay inside their
+    parent top-level section instead of replacing it.
     """
     sections = {}
     current_section = None
@@ -285,6 +309,15 @@ def extract_sections(doc: Document) -> dict[str, str]:
         detected_heading = detect_heading(paragraph)
 
         if detected_heading is not None:
+            if (
+                is_subsection_heading(paragraph)
+                and current_section is not None
+            ):
+                # Keep the subsection attached to the current
+                # top-level section. The subsection heading itself
+                # is not counted as manuscript body text.
+                continue
+
             if current_section is not None:
                 sections[current_section] = "\n".join(
                     current_parts
@@ -415,6 +448,50 @@ def calculate_main_text_word_count(
 
 
 # -------------------------------------------------------------------
+# Caption detection
+# -------------------------------------------------------------------
+
+def is_table_caption(text: str) -> bool:
+    """
+    Detect an actual table caption.
+
+    Examples:
+    Table 2. Main results
+    Table 2: Main results
+    Table 2 - Main results
+
+    A sentence such as:
+    'Table 2 and Figure 1 report the main results.'
+    is not a caption.
+    """
+    return bool(
+        re.match(
+            r"^\s*(?:table|جدول)\s*\d+\s*(?:[.:\-–—]\s*|$)",
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
+
+
+def is_figure_caption(text: str) -> bool:
+    """
+    Detect an actual figure caption.
+
+    Examples:
+    Figure 1. Study workflow
+    Figure 1: Study workflow
+    Fig. 1 - Study workflow
+    """
+    return bool(
+        re.match(
+            r"^\s*(?:figure|fig\.?|شكل)\s*\d+\s*(?:[.:\-–—]\s*|$)",
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
+
+
+# -------------------------------------------------------------------
 # Traceable blocks
 # -------------------------------------------------------------------
 
@@ -438,6 +515,24 @@ def build_blocks(doc: Document) -> list[Block]:
         detected_heading = detect_heading(paragraph)
 
         if detected_heading is not None:
+            # Keep numbered subsections such as 2.1 and 2.2
+            # attached to their current parent section.
+            if (
+                is_subsection_heading(paragraph)
+                and current_section is not None
+            ):
+                blocks.append(
+                    Block(
+                        id=f"paragraph_{index}",
+                        type="heading",
+                        text=text,
+                        section=current_section,
+                        word_count=count_words(text),
+                        paragraph_index=index,
+                    )
+                )
+                continue
+
             current_section = detected_heading
 
             blocks.append(
@@ -460,18 +555,10 @@ def build_blocks(doc: Document) -> list[Block]:
         elif is_keywords_line(text):
             block_type = "keywords"
 
-        elif re.match(
-            r"^(table|جدول)\s*\d+",
-            text,
-            flags=re.IGNORECASE,
-        ):
+        elif is_table_caption(text):
             block_type = "table_caption"
 
-        elif re.match(
-            r"^(figure|fig\.?|شكل)\s*\d+",
-            text,
-            flags=re.IGNORECASE,
-        ):
+        elif is_figure_caption(text):
             block_type = "figure_caption"
 
         elif (
