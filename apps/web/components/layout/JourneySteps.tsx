@@ -3,12 +3,16 @@ import { JOURNEY_STAGES, type JourneyStageId } from "@/components/layout/Journey
 const ARABIC_DIGITS = ["١", "٢", "٣", "٤"];
 
 type JourneyStepsProps = {
-  current: JourneyStageId;
+  /** "ready" = every stage completed, final state shown as current */
+  current: JourneyStageId | "ready";
 };
 
 /* Compact header stepper for screens after the start page. */
 export function JourneySteps({ current }: JourneyStepsProps) {
-  const currentIndex = JOURNEY_STAGES.findIndex((stage) => stage.id === current);
+  const isComplete = current === "ready";
+  const currentIndex = isComplete
+    ? JOURNEY_STAGES.length
+    : JOURNEY_STAGES.findIndex((stage) => stage.id === current);
 
   return (
     <nav aria-label="مراحل العمل" className="hidden md:block">
@@ -36,6 +40,14 @@ export function JourneySteps({ current }: JourneyStepsProps) {
             </li>
           );
         })}
+        {isComplete && (
+          <li className="flex items-center gap-3">
+            <span aria-hidden="true" className="h-px w-7 bg-stone" />
+            <span aria-current="step" className="border-b-2 border-terracotta pb-0.5 font-bold text-ink">
+              جاهز للتقديم
+            </span>
+          </li>
+        )}
       </ol>
     </nav>
   );
