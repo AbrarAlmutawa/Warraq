@@ -77,6 +77,11 @@ class Suggestion(BaseModel):
     """AI recommendation (~ frontend WarraqSuggestion). Always optional for the researcher."""
 
     suggestion_id: str
+    # What kind of help this is: "scope_fit", "shorten_title", "shorten_abstract",
+    # "draft_highlights" or "draft_statement". Added in S4 v2 (optional).
+    kind: str | None = None
+    # The checklist rule this suggestion helps fix, if any (e.g. "title_length").
+    rule_id: str | None = None
     field: str
     label: str
     title: str

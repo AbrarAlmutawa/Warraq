@@ -35,8 +35,21 @@ class Settings:
     )
     # Model per LLM task. Keep these configurable: model choice is a
     # budget/quality decision we will tune, not something to hardcode.
+    # Guideline pages -> structured rules. Runs rarely (offline), accuracy matters.
     journal_extraction_model: str = field(
-        default_factory=lambda: os.getenv("JOURNAL_EXTRACTION_MODEL", "claude-sonnet-4-6")
+        default_factory=lambda: os.getenv("JOURNAL_EXTRACTION_MODEL", "claude-sonnet-5")
+    )
+    # Researcher-facing AI suggestions (scope fit, drafts). Needs judgment.
+    suggestions_model: str = field(
+        default_factory=lambda: os.getenv("SUGGESTIONS_MODEL", "claude-sonnet-5")
+    )
+    # Mechanical reformatting (citation style conversion). Cheap and fast.
+    citation_model: str = field(
+        default_factory=lambda: os.getenv("CITATION_MODEL", "claude-haiku-4-5-20251001")
+    )
+    # Reuse identical LLM answers (same model + same input) instead of paying again.
+    llm_cache_enabled: bool = field(
+        default_factory=lambda: os.getenv("LLM_CACHE_ENABLED", "true").lower() == "true"
     )
     llm_timeout_seconds: float = field(
         default_factory=lambda: float(os.getenv("LLM_TIMEOUT_SECONDS", "60"))

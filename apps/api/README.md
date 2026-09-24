@@ -39,6 +39,9 @@ pytest
 | POST | `/match` | `{manuscript_id, preferences}` → ranked journals |
 | POST | `/validate` | `{manuscript_id, journal_id}` → submission checklist (Switch Journal = call again) |
 | POST | `/validate/compare` | `{manuscript_id, journal_ids}` → readiness summary per journal |
+| POST | `/suggestions` | `{manuscript_id, journal_id}` → AI scope fit + drafts for failed rules |
+| PATCH | `/suggestions/{id}` | `{status: accepted \| rejected}` |
+| GET | `/llm/usage` | Calls, tokens and estimated cost per AI task |
 
 ## Database
 
@@ -59,5 +62,5 @@ python -m db.run_agent                       # scrape db/seed/journal_sources.js
   `from services.matcher import match` and `from models.journal import JournalRequirementSpec`.
   Never use `from apps.api...`.
 - **Settings:** read configuration through `core.config.get_settings()`, never `os.environ` directly.
-- **LLM calls:** get the client from `services.llm.get_anthropic_client()`; don't create your own.
+- **LLM calls:** always `services.llm.get_gateway().call_tool(...)` (see `docs/llmops.md`); never create your own client.
 - **Shared schemas:** cross-team contracts live in `models/`. Add new fields as Optional with a default.

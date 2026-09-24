@@ -12,10 +12,9 @@ from datetime import datetime, timezone
 import httpx
 from bs4 import BeautifulSoup
 
-from core.config import get_settings
 from models.journal import HardConstraint, JournalRequirementSpec
 from services.journal_agent.state import AgentState
-from services.llm import get_anthropic_client
+from services.llm import get_gateway
 
 CONFIDENCE_THRESHOLD = 0.75  # below this -> human review queue
 
@@ -136,26 +135,22 @@ def extract_node(state: AgentState) -> AgentState:
     # than this to find the fields we care about.
     source_text = state["raw_text"][:20000]
 
-    message = get_anthropic_client().messages.create(
-        model=get_settings().journal_extraction_model,
+    # All LLM calls go through the S4 gateway: model per task, caching,
+    # usage/cost logging, and errors returned instead of raised.
+    result = get_gateway().call_tool(
+        "journal_extraction",
+        tool=EXTRACTION_TOOL,
         max_tokens=4000,
-        tools=[EXTRACTION_TOOL],
-        tool_choice={"type": "tool", "name": "record_journal_requirements"},
-        messages=[
-            {
-                "role": "user",
-                "content": (
-                    f"Extract author-guideline requirements for the journal "
-                    f"'{state['journal_name']}' from the following page text. "
-                    f"Only report fields the page actually states; leave "
-                    f"others null rather than inferring.\n\n{source_text}"
-                ),
-            }
-        ],
+        user=(
+            f"Extract author-guideline requirements for the journal "
+            f"'{state['journal_name']}' from the following page text. "
+            f"Only report fields the page actually states; leave "
+            f"others null rather than inferring.\n\n{source_text}"
+        ),
     )
-
-    tool_use = next(b for b in message.content if b.type == "tool_use")
-    data = tool_use.input
+    if result.status != "ok" or result.data is None:
+        return {**state, "draft_spec": None, "extract_error": f"LLM {result.status}: {result.error}"}
+    data = result.data
 
     def _pair(low, high):
         return (low, high) if low is not None and high is not None else None

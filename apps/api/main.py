@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import get_settings
 from db import get_store
 from db.seed import seed_if_empty
-from routers import journals, manuscripts, match, validate
+from routers import journals, manuscripts, match, suggestions, validate
 
 settings = get_settings()
 
@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Warraq API",
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
@@ -37,6 +37,7 @@ app.include_router(manuscripts.router)
 app.include_router(match.router)
 app.include_router(journals.router)
 app.include_router(validate.router)
+app.include_router(suggestions.router)
 
 
 @app.get("/")

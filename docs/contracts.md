@@ -123,6 +123,10 @@ This follows Warraq's principle of flagging instead of guessing.
   (**changed:** it no longer takes the whole paper in the body)
 - `POST /validate` with `{manuscript_id, journal_id}` → `ValidationReport` (see `docs/validation.md`)
 - `POST /validate/compare` with `{manuscript_id, journal_ids}` → readiness summary per journal
+- `POST /suggestions` with `{manuscript_id, journal_id, refresh?}` → `{status, message, suggestions: Suggestion[]}`
+  (`status`: ok / stored / unavailable / error; see `docs/llmops.md`)
+- `PATCH /suggestions/{suggestion_id}` with `{status}` → `Suggestion`
+- `GET /llm/usage` → usage and estimated cost per AI task
 
 ## 6. Rule for changing a contract
 
