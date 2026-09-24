@@ -16,6 +16,17 @@ def preference_bonus(journal: JournalProfile, prefs: MatchPreferences) -> tuple[
     ):
         bonus += 0.05
         reasons.append("Preferred journal")
+
+    # Added by S4 (team decisions v1).
+    if prefs.prefer_open_access and journal.access_model == "open_access":
+        bonus += 0.03
+        reasons.append("Fully open access (preferred)")
+    if prefs.open_access_only and journal.access_model == "hybrid":
+        reasons.append("Hybrid journal: open access is available for an APC")
+    if prefs.max_review_days is not None and journal.review_days_avg is None:
+        reasons.append("Review time not published; check before submitting")
+    if prefs.required_indexes and not journal.indexes:
+        reasons.append("Indexing not confirmed; check before submitting")
     return min(bonus, 0.08), reasons
 
 

@@ -54,6 +54,8 @@ def spec_to_profile(spec: JournalRequirementSpec) -> JournalProfile:
         apc_currency="USD" if spec.apc_usd is not None else None,
         publisher=spec.publisher,
         source_url=spec.source_url,
+        review_days_avg=spec.review_speed_days_avg,
+        indexes=spec.indexes,
     )
 
 
