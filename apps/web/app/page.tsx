@@ -7,11 +7,7 @@ export default function HomePage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader
-        aside={
-          <span className="rounded-full border border-rule-strong px-3 py-[3px] text-xs text-muted">
-            نموذج أولي · هاكاثون فارق
-          </span>
-        }
+        
       />
 
       <main className="flex flex-1 flex-col gap-14 px-6 pt-12 lg:flex-row lg:gap-[88px] lg:px-[72px] lg:pt-[72px]">
