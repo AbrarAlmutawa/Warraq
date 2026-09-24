@@ -126,6 +126,8 @@ This follows Warraq's principle of flagging instead of guessing.
 - `POST /suggestions` with `{manuscript_id, journal_id, refresh?}` → `{status, message, suggestions: Suggestion[]}`
   (`status`: ok / stored / unavailable / error; see `docs/llmops.md`)
 - `PATCH /suggestions/{suggestion_id}` with `{status}` → `Suggestion`
+- `POST /citations/convert` with `{manuscript_id, journal_id | to_style}` → `CitationConversion`
+  (the `convert_citations` fix; see `docs/llmops.md`)
 - `GET /llm/usage` → usage and estimated cost per AI task
 
 ## 6. Rule for changing a contract

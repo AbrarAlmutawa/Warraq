@@ -54,3 +54,20 @@ Guardrails:
   `rejected`; the backend never edits the manuscript itself.
 - Suggestions are stored, so reopening the workspace or switching back to a journal does not
   call the AI again (`status: "stored"`). Send `refresh: true` to regenerate.
+
+## Citation conversion (`POST /citations/convert`)
+
+Powers the checklist fix `convert_citations`. Send `{manuscript_id, journal_id}` to use the
+journal's required style, or `{manuscript_id, to_style}` with `apa`, `ieee`, `mla` or `chicago`.
+
+The work is split so the model only does what needs language understanding:
+
+- **Model (Haiku 4.5):** rewrites each reference and gives its in-text form. It must not add a
+  DOI, pages, volume or any detail missing from the original; it lists them in `missing_fields`.
+- **Code:** IEEE numbering and in-text `[n]`, alphabetical order for author-date styles,
+  batching (20 references per call), ignoring duplicate or unknown items, reporting references
+  that did not come back (`failed_indexes`, status `partial`), and checking the result is
+  really the target style (`verified`, for APA and IEEE).
+
+Nothing is applied to the manuscript; the workspace shows the proposal for the researcher to
+accept. Each item keeps the `block_id` of the original reference for highlighting.

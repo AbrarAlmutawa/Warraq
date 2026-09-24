@@ -31,7 +31,7 @@ A rule the journal does not state produces no result at all.
 | `keyword_count` | keywords within range | keywords line |
 | `word_count` | main-text words <= max | none |
 | `reference_count` | references within range | references |
-| `citation_style` | detected style (IEEE `[n]` / APA `(Year)`) equals required | references |
+| `citation_style` | detected style (IEEE `[n]` / APA `(Year)`) equals required; fix = `POST /citations/convert` | references |
 | `table_count`, `figure_count` | count <= max | captions |
 | `highlights` | "Highlights" section with the required number of lines | highlights section |
 | `template` | Word vs LaTeX submission | none |
