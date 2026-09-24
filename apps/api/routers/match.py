@@ -32,7 +32,14 @@ def match_manuscript(
     if record is None:
         raise HTTPException(status_code=404, detail="Manuscript not found. Upload it first.")
 
-    specs = {spec.journal_id: spec for spec in store.list_journals()}
+    stored_specs = store.list_journals()
+    if not stored_specs:
+        raise HTTPException(
+            status_code=503,
+            detail="No journal records are available. Run S1 journal collection before matching.",
+        )
+
+    specs = {spec.journal_id: spec for spec in stored_specs}
     profiles = [spec_to_profile(spec) for spec in specs.values()]
 
     try:

@@ -84,6 +84,17 @@ def test_unknown_ids_return_404(client):
     assert client.post("/match", json={"manuscript_id": "nope"}).status_code == 404
 
 
+def test_match_requires_s1_journals(client, store):
+    manuscript_id = upload(client, docx_bytes()).json()["manuscript_id"]
+    store._conn.execute("DELETE FROM journals")
+    store._conn.commit()
+
+    response = client.post("/match", json={"manuscript_id": manuscript_id})
+
+    assert response.status_code == 503
+    assert "No journal records" in response.json()["detail"]
+
+
 def test_list_and_get_journals(client):
     journals = client.get("/journals").json()
     assert len(journals) == 3
@@ -126,6 +137,20 @@ def test_match_respects_preferences(client):
         "/match", json={"manuscript_id": manuscript_id, "preferences": {"max_apc": 1500}}
     ).json()
     assert {r["journal_id"] for r in cheap} == {"demo-ai-001", "demo-agri-001"}
+
+
+def test_match_does_not_filter_fixable_submission_requirements(client, store):
+    manuscript_id = upload(client, docx_bytes("This Title Has Too Many Words For A Strict Journal")).json()[
+        "manuscript_id"
+    ]
+    strict = store.get_journal("demo-ai-001")
+    assert strict is not None
+    strict.hard_constraints.max_title_words = 3
+    store.save_journal(strict)
+
+    results = client.post("/match", json={"manuscript_id": manuscript_id}).json()
+
+    assert "demo-ai-001" in {r["journal_id"] for r in results}
 
 
 def test_seed_does_not_overwrite_real_journals(tmp_path):
