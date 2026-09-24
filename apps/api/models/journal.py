@@ -94,4 +94,5 @@ class ReviewQueueItem(BaseModel):
     draft_spec: JournalRequirementSpec | None = None
     low_confidence_fields: list[str]
     raw_extract_notes: str | None = None
+    review_notes: str | None = None
     status: str = "pending"  # "pending" | "approved" | "rejected" | "edited"

@@ -114,6 +114,135 @@ def test_review_queue(client, store):
     assert len(items) == 1 and items[0]["low_confidence_fields"] == ["apc_usd"]
 
 
+def review_spec(journal_id="real-review", name="Real Review Journal", source_url="https://real.example/guidelines"):
+    return JournalRequirementSpec(
+        journal_id=journal_id,
+        name=name,
+        publisher="Real Publisher",
+        source_url=source_url,
+        hard_constraints=HardConstraint(max_title_words=20),
+        scope_description="Medical imaging, deep learning and x-ray research.",
+        extraction_confidence=0.72,
+        needs_human_review=True,
+        topics=["medical imaging", "deep learning"],
+        accepted_article_types=["research_article"],
+        languages=["en"],
+        access_model="open_access",
+        apc_usd=1200,
+        field_confidences={"scope_description": 0.7},
+        field_excerpts={"scope_description": "Medical imaging and x-ray research."},
+    )
+
+
+def save_review_draft(store, spec=None):
+    draft = spec or review_spec()
+    item = ReviewQueueItem(
+        journal_id=draft.journal_id,
+        name=draft.name,
+        source_url=draft.source_url,
+        draft_spec=draft,
+        low_confidence_fields=["scope_description"],
+    )
+    store.save_review_item(item)
+    return item
+
+
+def test_review_item_can_be_retrieved_and_edited(client, store):
+    item = save_review_draft(store)
+
+    fetched = client.get(f"/journals/review-queue/{item.journal_id}")
+    assert fetched.status_code == 200
+    assert fetched.json()["draft_spec"]["field_excerpts"]["scope_description"]
+
+    corrected = review_spec()
+    corrected.scope_description = "Corrected medical imaging scope."
+    response = client.patch(
+        f"/journals/review-queue/{item.journal_id}",
+        json={"draft_spec": corrected.model_dump(mode="json"), "review_notes": "Scope checked."},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "edited"
+    assert body["draft_spec"]["scope_description"] == "Corrected medical imaging scope."
+    assert body["review_notes"] == "Scope checked."
+
+
+def test_approve_review_item_promotes_journal_and_match_can_use_it(client, store):
+    item = save_review_draft(store)
+
+    approved = client.post(
+        f"/journals/review-queue/{item.journal_id}/approve",
+        json={"review_notes": "Verified source page."},
+    )
+
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
+    journal = client.get(f"/journals/{item.journal_id}")
+    assert journal.status_code == 200
+    assert journal.json()["is_demo"] is False
+    assert journal.json()["needs_human_review"] is False
+
+    manuscript_id = upload(client, docx_bytes()).json()["manuscript_id"]
+    results = client.post("/match", json={"manuscript_id": manuscript_id}).json()
+    approved_match = next(r for r in results if r["journal_id"] == item.journal_id)
+    assert approved_match["is_demo"] is False
+    assert approved_match["matched_topics"]
+    assert any("Semantic scope similarity" in reason for reason in approved_match["reasons"])
+
+
+def test_reject_review_item_does_not_add_journal(client, store):
+    item = save_review_draft(store, review_spec(journal_id="reject-me", name="Reject Me"))
+
+    response = client.post(
+        f"/journals/review-queue/{item.journal_id}/reject",
+        json={"reason": "Source page was not authoritative."},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "rejected"
+    assert response.json()["review_notes"] == "Source page was not authoritative."
+    assert client.get(f"/journals/{item.journal_id}").status_code == 404
+
+
+def test_review_workflow_rejects_invalid_missing_and_duplicate_actions(client, store):
+    item = save_review_draft(store, review_spec(journal_id="once", name="Approve Once"))
+
+    assert client.get("/journals/review-queue/nope").status_code == 404
+    assert client.patch(f"/journals/review-queue/{item.journal_id}", json={}).status_code == 422
+
+    approved = client.post(f"/journals/review-queue/{item.journal_id}/approve", json={})
+    assert approved.status_code == 200
+    assert client.post(f"/journals/review-queue/{item.journal_id}/approve", json={}).status_code == 409
+    assert client.post(f"/journals/review-queue/{item.journal_id}/reject", json={}).status_code == 409
+
+
+def test_failed_review_approval_preserves_queue_and_existing_journals(client, store):
+    real = JournalRequirementSpec(
+        journal_id="existing-real",
+        name="Existing Real",
+        publisher="P",
+        source_url="https://existing.example",
+        hard_constraints=HardConstraint(),
+        scope_description="Existing scope",
+        extraction_confidence=0.9,
+        access_model="hybrid",
+    )
+    store.save_journal(real)
+    item = save_review_draft(
+        store,
+        review_spec(journal_id="conflict", name="Existing Real", source_url="https://other.example"),
+    )
+
+    response = client.post(f"/journals/review-queue/{item.journal_id}/approve", json={})
+
+    assert response.status_code == 409
+    assert client.get("/journals/existing-real").status_code == 200
+    queued = client.get(f"/journals/review-queue/{item.journal_id}").json()
+    assert queued["status"] == "pending"
+    assert client.get(f"/journals/{item.journal_id}").status_code == 404
+
+
 def test_match_by_manuscript_id(client):
     manuscript_id = upload(client, docx_bytes()).json()["manuscript_id"]
     response = client.post("/match", json={"manuscript_id": manuscript_id})

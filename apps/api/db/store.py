@@ -152,6 +152,64 @@ class Store:
                 ).fetchall()
         return [ReviewQueueItem.model_validate_json(r[0]) for r in rows]
 
+    def get_review_item(self, journal_id: str) -> ReviewQueueItem | None:
+        with self._tx() as c:
+            row = c.execute(
+                "SELECT data FROM review_queue WHERE journal_id = ?", (journal_id,)
+            ).fetchone()
+        return ReviewQueueItem.model_validate_json(row[0]) if row else None
+
+    def find_journal_conflict(self, spec: JournalRequirementSpec) -> JournalRequirementSpec | None:
+        with self._tx() as c:
+            rows = c.execute("SELECT data FROM journals").fetchall()
+        for row in rows:
+            existing = JournalRequirementSpec.model_validate_json(row[0])
+            if existing.journal_id == spec.journal_id:
+                return existing
+            if existing.source_url == spec.source_url:
+                return existing
+            if existing.name.casefold() == spec.name.casefold():
+                return existing
+        return None
+
+    def update_review_item(self, item: ReviewQueueItem) -> None:
+        with self._tx() as c:
+            exists = c.execute(
+                "SELECT 1 FROM review_queue WHERE journal_id = ?", (item.journal_id,)
+            ).fetchone()
+            if not exists:
+                raise KeyError(item.journal_id)
+            c.execute(
+                "UPDATE review_queue SET status = ?, data = ? WHERE journal_id = ?",
+                (item.status, item.model_dump_json(), item.journal_id),
+            )
+
+    def approve_review_item(self, item: ReviewQueueItem, spec: JournalRequirementSpec) -> None:
+        """Atomically promote a reviewed draft into the journal catalog."""
+        with self._tx() as c:
+            row = c.execute(
+                "SELECT data FROM review_queue WHERE journal_id = ?", (item.journal_id,)
+            ).fetchone()
+            if not row:
+                raise KeyError(item.journal_id)
+            rows = c.execute("SELECT data FROM journals").fetchall()
+            for row in rows:
+                existing = JournalRequirementSpec.model_validate_json(row[0])
+                if (
+                    existing.journal_id == spec.journal_id
+                    or existing.name.casefold() == spec.name.casefold()
+                    or existing.source_url == spec.source_url
+                ):
+                    raise ValueError("journal_conflict")
+            c.execute(
+                "INSERT INTO journals VALUES (?, ?, ?)",
+                (spec.journal_id, spec.name, spec.model_dump_json()),
+            )
+            c.execute(
+                "UPDATE review_queue SET status = ?, data = ? WHERE journal_id = ?",
+                (item.status, item.model_dump_json(), item.journal_id),
+            )
+
     # ---- AI suggestions (kept so accept/reject decisions survive) ----
 
     def save_suggestions(self, manuscript_id: str, journal_id: str, items: list[Suggestion]) -> None:
