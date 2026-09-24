@@ -5,7 +5,7 @@ import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { resolveWorkspaceJournalId } from "@/lib/workspace/journals";
 
 export const metadata: Metadata = {
-  title: "مساحة التجهيز — وَرَّاق",
+  title: "مساحة التجهيز - وَرَّاق",
 };
 
 type WorkspaceDemoPageProps = {

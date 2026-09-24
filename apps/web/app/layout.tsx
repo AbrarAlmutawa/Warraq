@@ -18,7 +18,7 @@ const plexSans = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "وَرَّاق — البحث أقرب إلى النشر",
+  title: "وَرَّاق - البحث أقرب إلى النشر",
   description: "مساعد النشر العلمي: من البحث المكتمل إلى مخطوطة جاهزة للتقديم.",
 };
 

@@ -93,7 +93,7 @@ export function evaluateManuscript(
       message: lengthOk
         ? "طول البحث ضمن الحد المسموح"
         : `طول البحث يتجاوز الحد المسموح ${wordsOver(manuscript.wordCount - rules.maxWords)}`,
-      note: lengthOk ? undefined : "يتطلب اختصار البحث منك — لا يُحاكى في هذا النموذج.",
+      note: lengthOk ? undefined : "يتطلب اختصار البحث منك - لا يُحاكى في هذا النموذج.",
     });
   }
 
@@ -172,7 +172,7 @@ export function evaluateManuscript(
         requirement,
         measured: "مسودة فارغة",
         status: "failed",
-        message: "أُدرج قسم Highlights لكنه ما زال مسودة — أكمل النقاط",
+        message: "أُدرج قسم Highlights لكنه ما زال مسودة - أكمل النقاط",
         anchor: "highlights",
         fix: { kind: "complete-highlights", label: "إكمال نموذج تجريبي", simulated: true },
       });

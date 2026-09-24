@@ -42,7 +42,7 @@ export type ReadinessStatus = {
 
 export function readinessStatus(summary: ReadinessSummary): ReadinessStatus {
   if (summary.hardErrorCount > 0) {
-    return { tone: "blocked", text: `غير جاهز بعد — ${hardErrorsPhrase(summary.hardErrorCount)} بحاجة إلى معالجة` };
+    return { tone: "blocked", text: `غير جاهز بعد - ${hardErrorsPhrase(summary.hardErrorCount)} بحاجة إلى معالجة` };
   }
   if (summary.reviewCount > 0) {
     return { tone: "review", text: `المتطلبات الإلزامية مستوفاة · ${reviewPhrase(summary.reviewCount)}` };

@@ -6,7 +6,7 @@ import { DEFAULT_JOURNAL_PREFERENCES } from "@/lib/mock-data/journal-preferences
 import { MOCK_JOURNAL_MATCHES } from "@/lib/mock-data/journal-matches";
 
 export const metadata: Metadata = {
-  title: "المجلات المقترحة لبحثك — وَرَّاق",
+  title: "المجلات المقترحة لبحثك - وَرَّاق",
 };
 
 export default function JournalsPage() {

@@ -4,7 +4,7 @@ import { SiteHeader } from "@/components/layout/SiteHeader";
 import { MOCK_ANALYSIS_STAGES, MOCK_MANUSCRIPT_FILE } from "@/lib/mock-data/manuscript-analysis";
 
 export const metadata: Metadata = {
-  title: "نقرأ بحثك — وَرَّاق",
+  title: "نقرأ بحثك - وَرَّاق",
 };
 
 export default function AnalysisPage() {

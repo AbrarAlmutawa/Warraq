@@ -127,9 +127,9 @@ export function SuggestionCard({
       {status !== "pending" && (
         <div className="mt-3 flex items-center gap-3 text-[13px]">
           {status === "accepted" ? (
-            <span className="font-semibold text-mint-text">✓ قُبل — عُدّل النص في المخطوطة</span>
+            <span className="font-semibold text-mint-text">✓ قُبل - عُدّل النص في المخطوطة</span>
           ) : (
-            <span className="text-body">رُفض — بقي النص كما هو</span>
+            <span className="text-body">رُفض - بقي النص كما هو</span>
           )}
           <span className="flex-1" />
           <button type="button" onClick={onUndo} className="h-9 px-1 underline underline-offset-4 hover:text-terracotta-text">

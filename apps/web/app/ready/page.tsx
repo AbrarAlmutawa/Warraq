@@ -6,7 +6,7 @@ import { getWorkspaceJournal, resolveWorkspaceJournalId } from "@/lib/workspace/
 import { buildReadyDemoState } from "@/lib/workspace/ready";
 
 export const metadata: Metadata = {
-  title: "جاهز للتقديم — وَرَّاق",
+  title: "جاهز للتقديم - وَرَّاق",
 };
 
 type ReadyPageProps = {

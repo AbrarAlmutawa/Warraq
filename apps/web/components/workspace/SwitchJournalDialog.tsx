@@ -96,7 +96,7 @@ export function SwitchJournalDialog({
           <span className={step === "preview" ? "font-bold text-ink" : ""}>٢ معاينة الأثر</span>
         </div>
         <p className="text-[13.5px] leading-relaxed text-body">
-          بحثك محلَّل مسبقًا. سنعيد فحص النص الحالي نفسه، بما فيه تعديلاتك المقبولة، على متطلبات المجلة الجديدة — دون إعادة
+          بحثك محلَّل مسبقًا. سنعيد فحص النص الحالي نفسه، بما فيه تعديلاتك المقبولة، على متطلبات المجلة الجديدة - دون إعادة
           قراءة البحث.
         </p>
 

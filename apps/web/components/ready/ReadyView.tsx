@@ -163,7 +163,7 @@ export function ReadyView({ journal, state }: ReadyViewProps) {
                           <div>
                             <p className="text-[14px] font-semibold">{result.label}</p>
                             <p className="mt-0.5 text-[13px] text-body">
-                              بند غير مؤكد في الاستخراج — أكّدته أنت بعد مراجعة المصدر
+                              بند غير مؤكد في الاستخراج - أكّدته أنت بعد مراجعة المصدر
                             </p>
                           </div>
                         </li>
@@ -238,7 +238,7 @@ export function ReadyView({ journal, state }: ReadyViewProps) {
                 <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-4 border-b border-rule py-2.5">
                   <dt className="text-muted">المصدر</dt>
                   <dd className="m-0 flex flex-col gap-1">
-                    {journal.sourceIsDemo && <span>مصدر تجريبي — سيُستبدل بالمصدر الرسمي عند الربط</span>}
+                    {journal.sourceIsDemo && <span>مصدر تجريبي - سيُستبدل بالمصدر الرسمي عند الربط</span>}
                     <span className="flex flex-wrap items-center gap-2">
                       {journal.sourceIsDemo && (
                         <span dir="ltr" className="border border-rule-strong px-1.5 font-latin text-[11px] font-semibold">

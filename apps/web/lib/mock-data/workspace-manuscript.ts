@@ -16,9 +16,9 @@ const DEMO_ABSTRACT =
 const DECLARED_ABSTRACT_WORDS = 236;
 
 export const DEMO_HIGHLIGHTS_DRAFT = [
-  "[Highlight 1 — max 85 characters]",
-  "[Highlight 2 — max 85 characters]",
-  "[Highlight 3 — max 85 characters]",
+  "[Highlight 1 - max 85 characters]",
+  "[Highlight 2 - max 85 characters]",
+  "[Highlight 3 - max 85 characters]",
 ];
 
 export const DEMO_HIGHLIGHTS_COMPLETE = [

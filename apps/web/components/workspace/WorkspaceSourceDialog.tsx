@@ -87,7 +87,7 @@ export function WorkspaceSourceDialog({ result, journal, onClose }: WorkspaceSou
                 {result.isReviewRule
                   ? result.confirmedByUser
                     ? "أكّدته أنت يدويًا"
-                    : "مطلوبة — لم يستطع وَرَّاق التحقق من هذا البند بشكل مؤكد"
+                    : "مطلوبة - لم يستطع وَرَّاق التحقق من هذا البند بشكل مؤكد"
                   : "غير مطلوبة لهذا البند"}
               </dd>
             </div>

@@ -26,7 +26,7 @@ export default function HomePage() {
 
           <p className="mt-[22px] max-w-[500px] text-lg leading-[1.85] text-body">
             ارفع بحثك المكتمل، ونقترح لك المجلات الأنسب لنطاقه وميزانيتك، ثم نفحص مخطوطتك على متطلبات
-            المجلة التي تختارها — مع مصدر كل متطلب.
+            المجلة التي تختارها - مع مصدر كل متطلب.
           </p>
 
           <div className="mt-14">

@@ -165,7 +165,7 @@ export function UnderstandingSection({ understanding, onChange }: UnderstandingS
         هذا ما فهمناه من بحثك
       </h1>
       <p className="mt-2 text-[14.5px] leading-relaxed text-body">
-        راجع ما استخرجه وَرَّاق من بحثك وصحّح ما يلزم — تعتمد اقتراحات المجلات على هذه المعلومات.
+        راجع ما استخرجه وَرَّاق من بحثك وصحّح ما يلزم - تعتمد اقتراحات المجلات على هذه المعلومات.
       </p>
 
       <dl className="mt-6 border-t border-rule">

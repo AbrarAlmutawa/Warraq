@@ -303,7 +303,7 @@ export function WorkspaceShell({ initialJournalId }: { initialJournalId: string 
               <span className="underline decoration-subtle decoration-dashed underline-offset-4">خط متقطع</span>
             </span>
             <span>
-              <span className="font-bold text-mint-text">✓</span> مستوفى — بلا تظليل
+              <span className="font-bold text-mint-text">✓</span> مستوفى - بلا تظليل
             </span>
           </div>
           <div className="min-h-0 flex-1 bg-paper-raised">

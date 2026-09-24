@@ -58,7 +58,7 @@ export function diffValidation(current: RequirementResult[], candidate: Requirem
       impact.newRequirements.push({
         id: next.id,
         label: next.label,
-        detail: next.status === "passed" ? `مستوفى — ${next.requirement}` : next.message,
+        detail: next.status === "passed" ? `مستوفى - ${next.requirement}` : next.message,
         symbol: SYMBOL[next.status],
       });
       continue;

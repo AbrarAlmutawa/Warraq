@@ -6,7 +6,7 @@ import { DEFAULT_JOURNAL_PREFERENCES } from "@/lib/mock-data/journal-preferences
 import { MOCK_MANUSCRIPT_UNDERSTANDING } from "@/lib/mock-data/manuscript-understanding";
 
 export const metadata: Metadata = {
-  title: "هذا ما فهمناه من بحثك — وَرَّاق",
+  title: "هذا ما فهمناه من بحثك - وَرَّاق",
 };
 
 export default function PreferencesPage() {

@@ -16,8 +16,8 @@ export const OPEN_ACCESS_SHORT: Record<OpenAccessModel, string> = {
 
 export const OPEN_ACCESS_FULL: Record<OpenAccessModel, string> = {
   full: "وصول مفتوح كامل",
-  hybrid: "هجينة — وصول مفتوح اختياري برسوم",
-  subscription: "اشتراك — بلا وصول مفتوح",
+  hybrid: "هجينة - وصول مفتوح اختياري برسوم",
+  subscription: "اشتراك - بلا وصول مفتوح",
 };
 
 export const CONFIDENCE: Record<ExtractionConfidence, { label: string; detail: string }> = {

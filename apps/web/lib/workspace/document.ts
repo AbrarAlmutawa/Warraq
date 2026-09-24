@@ -120,7 +120,7 @@ export function buildManuscriptDocument(
     });
     blank();
   } else if (rules.highlights) {
-    const marker = "[Required by this journal: Highlights — not found in the manuscript]";
+    const marker = "[Required by this journal: Highlights - not found in the manuscript]";
     const markerLine = push(marker);
     add("highlights", whole(markerLine, marker));
     sections.push({ id: "highlights", label: "Highlights", line: markerLine, missing: true });
@@ -154,7 +154,7 @@ export function buildManuscriptDocument(
     add("data-availability", whole(push(content), content));
     blank();
   } else if (rules.requiresDataAvailability) {
-    const marker = "[Required by this journal: Data Availability Statement — not found in the manuscript]";
+    const marker = "[Required by this journal: Data Availability Statement - not found in the manuscript]";
     const markerLine = push(marker);
     add("data-availability", whole(markerLine, marker));
     sections.push({ id: "data-availability", label: "Data Availability", line: markerLine, missing: true });
