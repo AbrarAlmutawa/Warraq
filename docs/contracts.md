@@ -87,7 +87,8 @@ Differences to know:
 - `GET /journals/{journal_id}` → `JournalRequirementSpec`
 - `POST /match` with `{manuscript_id, preferences}` → `JournalMatchView[]`
   (**changed:** it no longer takes the whole paper in the body)
-- `POST /validate` → `ValidationReport` (next)
+- `POST /validate` with `{manuscript_id, journal_id}` → `ValidationReport` (see `docs/validation.md`)
+- `POST /validate/compare` with `{manuscript_id, journal_ids}` → readiness summary per journal
 
 ## 6. Rule for changing a contract
 

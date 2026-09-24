@@ -37,6 +37,8 @@ pytest
 | GET | `/journals/review-queue` | Journals the agent flagged for human review |
 | GET | `/journals/{journal_id}` | One journal's full requirements |
 | POST | `/match` | `{manuscript_id, preferences}` → ranked journals |
+| POST | `/validate` | `{manuscript_id, journal_id}` → submission checklist (Switch Journal = call again) |
+| POST | `/validate/compare` | `{manuscript_id, journal_ids}` → readiness summary per journal |
 
 ## Database
 
