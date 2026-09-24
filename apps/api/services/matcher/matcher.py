@@ -12,6 +12,18 @@ from .profile_builder import build_journal_profile, build_paper_profile, normali
 from .ranking import final_score, preference_bonus
 
 
+# One shared provider per process, so the embedding model loads once
+# instead of on every /match request.
+_default_provider: SentenceTransformerEmbeddingProvider | None = None
+
+
+def _get_default_provider() -> SentenceTransformerEmbeddingProvider:
+    global _default_provider
+    if _default_provider is None:
+        _default_provider = SentenceTransformerEmbeddingProvider()
+    return _default_provider
+
+
 def _matched_topics(paper: ManuscriptParsedData, journal: JournalProfile) -> list[str]:
     paper_terms = normalized_terms(" ".join([paper.title, paper.abstract, *paper.keywords]))
     return [
@@ -33,7 +45,7 @@ def match(
     if not eligible:
         return []
 
-    provider = embedding_provider or SentenceTransformerEmbeddingProvider()
+    provider = embedding_provider or _get_default_provider()
     texts = [build_paper_profile(paper)] + [build_journal_profile(j) for j in eligible]
     vectors = provider.encode(texts)
     paper_vector = vectors[0]

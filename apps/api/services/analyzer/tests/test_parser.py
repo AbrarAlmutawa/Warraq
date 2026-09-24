@@ -1,14 +1,8 @@
 from pathlib import Path
-import sys
 
 from docx import Document
 
-
-# Let the test file import parser.py
-ANALYZER_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ANALYZER_DIR))
-
-from parser import parse_docx, count_words
+from services.analyzer.parser import parse_docx, count_words
 
 
 def create_test_manuscript(path: Path):

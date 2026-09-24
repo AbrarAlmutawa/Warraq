@@ -3,7 +3,10 @@ import re
 
 from docx import Document
 from docx.enum.text import WD_COLOR_INDEX
-from models import ValidationIssue
+try:
+    from .models import ValidationIssue
+except ImportError:
+    from models import ValidationIssue
 
 SAMPLE_PATH = Path(__file__).parent / "samples" / "messy_demo.docx"
 

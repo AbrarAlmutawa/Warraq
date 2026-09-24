@@ -11,14 +11,14 @@ from typing import Callable
 
 from langgraph.graph import END, StateGraph
 
-from apps.api.models.journal import JournalRequirementSpec, ReviewQueueItem
-from apps.api.services.journal_agent.nodes import (
+from models.journal import JournalRequirementSpec, ReviewQueueItem
+from services.journal_agent.nodes import (
     confidence_check_node,
     extract_node,
     route_after_confidence_check,
     scrape_node,
 )
-from apps.api.services.journal_agent.state import AgentState
+from services.journal_agent.state import AgentState
 
 SaveSpecFn = Callable[[JournalRequirementSpec], None]
 EnqueueReviewFn = Callable[[ReviewQueueItem], None]
