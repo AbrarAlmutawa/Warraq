@@ -1,14 +1,27 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import get_settings
-from routers import manuscripts, match
+from db import get_store
+from db.seed import seed_if_empty
+from routers import journals, manuscripts, match, suggestions, validate
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if settings.seed_demo_journals:
+        seed_if_empty(get_store())
+    yield
+
+
 app = FastAPI(
     title="Warraq API",
-    version="0.1.0",
+    version="0.4.0",
+    lifespan=lifespan,
 )
 
 # Allow the Next.js frontend (apps/web) to call the API from the browser.
@@ -22,6 +35,9 @@ app.add_middleware(
 
 app.include_router(manuscripts.router)
 app.include_router(match.router)
+app.include_router(journals.router)
+app.include_router(validate.router)
+app.include_router(suggestions.router)
 
 
 @app.get("/")

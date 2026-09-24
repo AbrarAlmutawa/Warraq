@@ -30,6 +30,17 @@ def hard_constraint_failures(journal: JournalProfile, prefs: MatchPreferences) -
         if same_currency and journal.apc > prefs.max_apc:
             failures.append("max_apc")
 
+    # Unknown values never exclude a journal; only published values that
+    # contradict the preference do. Missing data is flagged in the reasons.
+    if prefs.max_review_days is not None and journal.review_days_avg is not None:
+        if journal.review_days_avg > prefs.max_review_days:
+            failures.append("max_review_days")
+
+    if prefs.required_indexes and journal.indexes:
+        have = {_norm(x) for x in journal.indexes}
+        if any(_norm(x) not in have for x in prefs.required_indexes):
+            failures.append("required_indexes")
+
     return failures
 
 
