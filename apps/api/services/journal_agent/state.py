@@ -5,7 +5,7 @@ every node reads/writes a subset of these keys.
 
 from typing import TypedDict
 
-from apps.api.models.journal import JournalRequirementSpec
+from models.journal import JournalRequirementSpec
 
 
 class AgentState(TypedDict, total=False):

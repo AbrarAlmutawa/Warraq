@@ -5,12 +5,12 @@ loop: run it, look at the printed spec, tweak the extraction prompt/tool
 schema, run it again.
 
 Usage:
-    python -m apps.api.services.journal_agent.run_local
+    cd apps/api && python -m services.journal_agent.run_local
 """
 
 import uuid
 
-from apps.api.services.journal_agent.graph import _REVIEW_QUEUE, _SPECS, build_dev_graph
+from services.journal_agent.graph import _REVIEW_QUEUE, _SPECS, build_dev_graph
 
 # Pick 3-5 journals you'll actually use in the demo's gold DB later.
 # Swap these for your real targets.

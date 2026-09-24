@@ -7,19 +7,17 @@ to Claude — this keeps the "smart" part swappable/testable without
 touching HTTP/parsing code.
 """
 
-import os
 from datetime import datetime
 
-import anthropic
 import httpx
 from bs4 import BeautifulSoup
 
-from apps.api.models.journal import HardConstraint, JournalRequirementSpec
-from apps.api.services.journal_agent.state import AgentState
+from core.config import get_settings
+from models.journal import HardConstraint, JournalRequirementSpec
+from services.journal_agent.state import AgentState
+from services.llm import get_anthropic_client
 
 CONFIDENCE_THRESHOLD = 0.75  # below this -> human review queue
-
-_client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 # The tool schema forces structured output instead of free text.
 # Field-level confidences ride along in the same call — cheaper than a
@@ -107,8 +105,8 @@ def extract_node(state: AgentState) -> AgentState:
     # than this to find the fields we care about.
     source_text = state["raw_text"][:20000]
 
-    message = _client.messages.create(
-        model="claude-sonnet-4-6",
+    message = get_anthropic_client().messages.create(
+        model=get_settings().journal_extraction_model,
         max_tokens=1500,
         tools=[EXTRACTION_TOOL],
         tool_choice={"type": "tool", "name": "record_journal_requirements"},
