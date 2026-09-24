@@ -1,0 +1,56 @@
+/* Monaco inline decorations — Warraq visual system */
+
+.warraq-deco-hard {
+  background-color: rgb(232 89 62 / 0.14);
+  text-decoration-line: underline;
+  text-decoration-style: solid;
+  text-decoration-color: #e8593e;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.warraq-deco-soft {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: #6f7d5c;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.warraq-deco-review {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: #8c857a;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.warraq-deco-selected {
+  outline: 2px solid #1b1b2f;
+  outline-offset: 1px;
+}
+
+.warraq-glyph-hard::before,
+.warraq-glyph-review::before {
+  display: block;
+  text-align: center;
+  font: 700 12px/26px var(--font-plex-sans), ui-sans-serif, sans-serif;
+}
+
+.warraq-glyph-hard::before {
+  content: "✕";
+  color: #a3361f;
+}
+
+.warraq-glyph-review::before {
+  content: "◐";
+  color: #4a4640;
+}
+
+.warraq-glyph-soft {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 26'%3E%3Cpath d='M4 14 L10 4 L16 12 L22 4 L28 14' fill='none' stroke='%234E5A3C' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cline x1='4' y1='22' x2='28' y2='22' stroke='%234E5A3C' stroke-width='3.6' stroke-linecap='round'/%3E%3C/svg%3E")
+    center / 14px 12px no-repeat;
+}
