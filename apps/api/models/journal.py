@@ -6,7 +6,7 @@ do not change field names/types without telling them. If you need to add
 a field, add it as Optional with a default so nothing else breaks.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -65,7 +65,7 @@ class JournalRequirementSpec(BaseModel):
     accepted_article_types: list[str] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
     access_model: str
-    last_scraped_at: datetime = Field(default_factory=datetime.utcnow)
+    last_scraped_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # --- Added by S4 (contracts v1). All Optional with defaults. ---
     short_name: str | None = None  # e.g. "PLOS ONE", "IEEE Access"

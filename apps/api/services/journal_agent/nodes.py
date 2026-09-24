@@ -7,7 +7,7 @@ to Claude — this keeps the "smart" part swappable/testable without
 touching HTTP/parsing code.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 from bs4 import BeautifulSoup
@@ -138,7 +138,7 @@ def extract_node(state: AgentState) -> AgentState:
 
     message = get_anthropic_client().messages.create(
         model=get_settings().journal_extraction_model,
-        max_tokens=1500,
+        max_tokens=4000,
         tools=[EXTRACTION_TOOL],
         tool_choice={"type": "tool", "name": "record_journal_requirements"},
         messages=[
@@ -181,8 +181,8 @@ def extract_node(state: AgentState) -> AgentState:
         max_tables=data.get("max_tables"),
         max_figures=data.get("max_figures"),
         highlights_range=_pair(data.get("highlights_min"), data.get("highlights_max")),
-        required_statements=data.get("required_statements", []),
-        required_sections=data.get("required_sections", []),
+        required_statements=data.get("required_statements") or [],
+        required_sections=data.get("required_sections") or [],
     )
 
     draft = JournalRequirementSpec(
@@ -194,23 +194,23 @@ def extract_node(state: AgentState) -> AgentState:
         scope_description=data["scope_description"],
         apc_usd=data.get("apc_usd"),
         review_speed_days_avg=data.get("review_speed_days_avg"),
-        topics=data.get("topics", []),
-        accepted_article_types=data.get("accepted_article_types", []),
-        languages=data.get("languages", []),
+        topics=data.get("topics") or [],
+        accepted_article_types=data.get("accepted_article_types") or [],
+        languages=data.get("languages") or [],
         extraction_confidence=0.0,  # filled in by confidence_check_node
         access_model=data.get("access_model") or "",
         short_name=_clean_str(data.get("short_name")),
         aims=data.get("aims") or "",
-        indexes=data.get("indexes", []),
-        field_confidences=data.get("field_confidences", {}),
-        field_excerpts=data.get("field_excerpts", {}),
-        last_scraped_at=datetime.utcnow(),
+        indexes=data.get("indexes") or [],
+        field_confidences=data.get("field_confidences") or {},
+        field_excerpts=data.get("field_excerpts") or {},
+        last_scraped_at=datetime.now(timezone.utc),
     )
 
     return {
         **state,
         "draft_spec": draft,
-        "field_confidences": data.get("field_confidences", {}),
+        "field_confidences": data.get("field_confidences") or {},
         "extract_error": None,
     }
 
