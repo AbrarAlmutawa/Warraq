@@ -41,6 +41,7 @@ pytest
 | POST | `/validate/compare` | `{manuscript_id, journal_ids}` → readiness summary per journal |
 | POST | `/suggestions` | `{manuscript_id, journal_id}` → AI scope fit + drafts for failed rules |
 | PATCH | `/suggestions/{id}` | `{status: accepted \| rejected}` |
+| POST | `/citations/convert` | `{manuscript_id, journal_id or to_style}` → references in the new style |
 | GET | `/llm/usage` | Calls, tokens and estimated cost per AI task |
 
 ## Database
