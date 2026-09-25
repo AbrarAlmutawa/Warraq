@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* ───────── وَرَّاق — brand tokens ───────── */
+@theme {
+  /* Core identity */
+  --color-ink: #1b1b2f;
+  --color-paper: #f4efe6;
+  --color-terracotta: #e8593e;
+  --color-mint: #2e8c82;
+  --color-olive: #7c8b6b;
+  --color-stone: #b7b0a6;
+
+  /* Readable text variants (AA on Paper) */
+  --color-terracotta-text: #a3361f;
+  --color-mint-text: #1f6e66;
+  --color-olive-text: #4e5a3c;
+
+  /* Editorial surfaces, rules and neutral text */
+  --color-paper-raised: #fbf8f2;
+  --color-terracotta-tint: #fdf4f0;
+  --color-rule: #d9d0c0;
+  --color-rule-strong: #c9c1b3;
+  --color-subtle: #8c857a;
+  --color-muted: #4a4640;
+  --color-body: #3a3a48;
+}
+
+/* Fonts come from next/font variables set on <html> */
+@theme inline {
+  --font-sans: var(--font-plex-arabic), var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-latin: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: rgb(232 89 62 / 0.25);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
