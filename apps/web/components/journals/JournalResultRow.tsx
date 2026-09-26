@@ -51,6 +51,11 @@ function PreferenceNote({ ok, okText, notText }: { ok: boolean; okText: string; 
   );
 }
 
+/* A value the journal does not publish: never a ✓/✕, just an honest prompt. */
+function UnknownNote() {
+  return <span className="text-muted">تحقق قبل التقديم</span>;
+}
+
 export function JournalResultRow({
   match,
   preferences,
@@ -63,6 +68,8 @@ export function JournalResultRow({
 }: JournalResultRowProps) {
   const fit = SCOPE_FIT[match.scopeFit];
   const wantsOpenAccess = preferences.openAccess !== "any";
+  const indexes = indexLabels(match.indexes);
+  const identityLine = [match.shortName, match.publisher].filter(Boolean).join(" · ");
 
   return (
     <li
@@ -78,10 +85,15 @@ export function JournalResultRow({
           <span dir="ltr" className="font-latin">
             {match.name}
           </span>
+          {match.sourceIsDemo && (
+            <span className="ms-2 inline-block rounded-full border border-rule-strong px-2 py-[1px] align-middle text-[11px] font-normal text-muted">
+              تجريبية
+            </span>
+          )}
         </h3>
         <p className="text-[13px] text-muted">
           <span dir="ltr" className="font-latin">
-            {match.shortName} · {match.publisher}
+            {identityLine}
           </span>
         </p>
         {isSelected && <p className="mt-2 text-[13px] font-semibold text-terracotta-text">✓ المجلة المختارة</p>}
@@ -108,15 +120,19 @@ export function JournalResultRow({
             </span>
           </p>
         )}
-        <p className="text-[12.5px] leading-relaxed text-muted">
-          <span className="font-semibold text-ink">أبرز المتطلبات: </span>
-          {match.requirementsSummary.map((requirement, index) => (
-            <span key={requirement}>
-              {index > 0 && <span aria-hidden="true"> · </span>}
-              {requirement}
-            </span>
-          ))}
-        </p>
+        {match.requirementsSummary.length > 0 && (
+          <p className="text-[12.5px] leading-relaxed text-muted">
+            <span className="font-semibold text-ink">أبرز المتطلبات: </span>
+            {match.requirementsSummary.map((requirement, index) => (
+              <span key={requirement}>
+                {index > 0 && <span aria-hidden="true"> · </span>}
+                <span dir="ltr" className="font-latin">
+                  {requirement}
+                </span>
+              </span>
+            ))}
+          </p>
+        )}
         {match.needsHumanReview && (
           <p className="text-xs text-muted">
             <span aria-hidden="true" className="font-bold">
@@ -133,12 +149,16 @@ export function JournalResultRow({
           label="رسوم النشر"
           value={formatApc(match.apcUsd)}
           note={
-            preferences.maxApcUsd !== null && (
-              <PreferenceNote
-                ok={isWithinBudget(match, preferences)}
-                okText="ضمن ميزانيتك"
-                notText="أعلى من ميزانيتك"
-              />
+            match.apcUsd === null ? (
+              <UnknownNote />
+            ) : (
+              preferences.maxApcUsd !== null && (
+                <PreferenceNote
+                  ok={isWithinBudget(match, preferences)}
+                  okText="ضمن ميزانيتك"
+                  notText="أعلى من ميزانيتك"
+                />
+              )
             )
           }
         />
@@ -146,7 +166,9 @@ export function JournalResultRow({
           label="الوصول المفتوح"
           value={OPEN_ACCESS_SHORT[match.openAccess]}
           note={
-            wantsOpenAccess && !isOpenAccessAvailable(match) ? (
+            match.openAccess === "unknown" ? (
+              <UnknownNote />
+            ) : wantsOpenAccess && !isOpenAccessAvailable(match) ? (
               <span className="text-muted">لا يطابق تفضيلك</span>
             ) : undefined
           }
@@ -155,22 +177,31 @@ export function JournalResultRow({
           label="مدة المراجعة"
           value={formatReviewDays(match.reviewDaysAvg)}
           note={
-            preferences.maxReviewDays !== null && (
-              <PreferenceNote
-                ok={isFastEnough(match, preferences)}
-                okText="ضمن المدة المفضّلة"
-                notText="أطول من المفضّل"
-              />
+            match.reviewDaysAvg === null ? (
+              <UnknownNote />
+            ) : (
+              preferences.maxReviewDays !== null && (
+                <PreferenceNote
+                  ok={isFastEnough(match, preferences)}
+                  okText="ضمن المدة المفضّلة"
+                  notText="أطول من المفضّل"
+                />
+              )
             )
           }
         />
         <Fact
           label="الفهرسة"
           value={
-            <span dir="ltr" className="font-latin">
-              {indexLabels(match.indexes).join(", ")}
-            </span>
+            indexes.length > 0 ? (
+              <span dir="ltr" className="font-latin">
+                {indexes.join(", ")}
+              </span>
+            ) : (
+              "غير معلنة"
+            )
           }
+          note={indexes.length === 0 ? <UnknownNote /> : undefined}
         />
       </dl>
 
@@ -219,7 +250,9 @@ export function JournalResultRow({
             عرض المصدر
             <span className="sr-only"> — {match.name}</span>
           </button>
-          <span className="text-xs text-muted">تحقق {formatCheckedDate(match.lastCheckedAt)}</span>
+          <span className="text-xs text-muted">
+            {match.sourceIsDemo ? "بيانات تجريبية" : `تحقق ${formatCheckedDate(match.lastCheckedAt)}`}
+          </span>
         </div>
       </div>
     </li>

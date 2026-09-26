@@ -54,11 +54,16 @@ const ROWS: CompareRow[] = [
   { label: "مدة المراجعة", render: (journal) => formatReviewDays(journal.reviewDaysAvg) },
   {
     label: "الفهرسة",
-    render: (journal) => (
-      <span dir="ltr" className="font-latin">
-        {indexLabels(journal.indexes).join(", ")}
-      </span>
-    ),
+    render: (journal) => {
+      const labels = indexLabels(journal.indexes);
+      return labels.length > 0 ? (
+        <span dir="ltr" className="font-latin">
+          {labels.join(", ")}
+        </span>
+      ) : (
+        "غير معلنة"
+      );
+    },
   },
 ];
 

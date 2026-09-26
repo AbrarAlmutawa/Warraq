@@ -9,6 +9,9 @@ type SourceDialogProps = {
   onClose: () => void;
 };
 
+/* Demo journals are fictional: their extraction metadata is not a real verification. */
+const DEMO_NOT_APPLICABLE = "لا ينطبق — قيم تجريبية لم تُستخرج من دليل مؤلفين حقيقي ولم يُتحقق منها.";
+
 export function SourceDialog({ match, onClose }: SourceDialogProps) {
   return (
     <DialogFrame open={match !== null} onClose={onClose} titleId="source-dialog-title" title="مصدر متطلبات المجلة">
@@ -53,19 +56,33 @@ export function SourceDialog({ match, onClose }: SourceDialogProps) {
             </div>
             <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-4 border-b border-rule py-3">
               <dt className="text-[13px] text-muted">آخر تحقق</dt>
-              <dd className="m-0">{formatCheckedDate(match.lastCheckedAt)}</dd>
+              <dd className="m-0">
+                {match.sourceIsDemo ? (
+                  <span className="text-muted">لا يوجد — بيانات تجريبية لم يُتحقق منها</span>
+                ) : (
+                  formatCheckedDate(match.lastCheckedAt)
+                )}
+              </dd>
             </div>
             <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-4 border-b border-rule py-3">
               <dt className="text-[13px] text-muted">الثقة في الاستخراج</dt>
               <dd className="m-0">
-                <span className="font-semibold">{CONFIDENCE[match.extractionConfidence].label}</span>
-                <span className="text-muted"> — {CONFIDENCE[match.extractionConfidence].detail}</span>
+                {match.sourceIsDemo ? (
+                  <span className="text-muted">{DEMO_NOT_APPLICABLE}</span>
+                ) : (
+                  <>
+                    <span className="font-semibold">{CONFIDENCE[match.extractionConfidence].label}</span>
+                    <span className="text-muted"> — {CONFIDENCE[match.extractionConfidence].detail}</span>
+                  </>
+                )}
               </dd>
             </div>
             <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-4 border-b border-rule py-3">
               <dt className="text-[13px] text-muted">المراجعة البشرية</dt>
               <dd className="m-0">
-                {match.needsHumanReview ? (
+                {match.sourceIsDemo ? (
+                  <span className="text-muted">{DEMO_NOT_APPLICABLE}</span>
+                ) : match.needsHumanReview ? (
                   <span>
                     <span aria-hidden="true" className="font-bold text-muted">◐ </span>
                     بعض المتطلبات بحاجة إلى مراجعة قبل الاعتماد عليها
@@ -81,11 +98,19 @@ export function SourceDialog({ match, onClose }: SourceDialogProps) {
             <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-4 py-3">
               <dt className="text-[13px] text-muted">أبرز المتطلبات</dt>
               <dd className="m-0">
-                <ul className="m-0 flex list-none flex-col gap-1 p-0">
-                  {match.requirementsSummary.map((requirement) => (
-                    <li key={requirement}>{requirement}</li>
-                  ))}
-                </ul>
+                {match.requirementsSummary.length > 0 ? (
+                  <ul className="m-0 flex list-none flex-col gap-1 p-0">
+                    {match.requirementsSummary.map((requirement) => (
+                      <li key={requirement}>
+                        <span dir="ltr" className="font-latin">
+                          {requirement}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span className="text-muted">لم تُنشر متطلبات لهذه المجلة بعد.</span>
+                )}
               </dd>
             </div>
           </dl>

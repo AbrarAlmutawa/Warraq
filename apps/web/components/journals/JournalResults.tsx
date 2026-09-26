@@ -15,17 +15,18 @@ import {
 } from "@/lib/journals/filters";
 import type { JournalMatch } from "@/lib/journals/types";
 import { summarizePreferences } from "@/lib/preferences/summary";
-import type { JournalPreferences } from "@/lib/preferences/types";
+import type { ArticleType, JournalPreferences } from "@/lib/preferences/types";
 
 type JournalResultsProps = {
   matches: JournalMatch[];
   preferences: JournalPreferences;
+  articleType: ArticleType | null;
   nextHref: string;
 };
 
 const MAX_COMPARE = 2;
 
-export function JournalResults({ matches, preferences, nextHref }: JournalResultsProps) {
+export function JournalResults({ matches, preferences, articleType, nextHref }: JournalResultsProps) {
   const [filters, setFilters] = useState<JournalFilterState>(EMPTY_JOURNAL_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
@@ -34,6 +35,7 @@ export function JournalResults({ matches, preferences, nextHref }: JournalResult
 
   const visible = applyJournalFilters(matches, filters, preferences);
   const activeCount = activeFilterCount(filters);
+  const hasDemoJournals = matches.some((match) => match.sourceIsDemo);
   const selected = matches.find((match) => match.journalId === selectedId) ?? null;
   const sourceMatch = matches.find((match) => match.journalId === sourceId) ?? null;
   const compared = compareIds
@@ -61,14 +63,19 @@ export function JournalResults({ matches, preferences, nextHref }: JournalResult
               وليس شرطًا من شروط المجلة.
             </p>
           </div>
-          <span className="self-start rounded-full border border-rule-strong px-3 py-[3px] text-xs text-muted lg:self-auto">
-            بيانات تجريبية
-          </span>
+          {hasDemoJournals && (
+            <span
+              title="تتضمن القائمة مجلات تجريبية وهمية لأغراض العرض؛ قيمها ومتطلباتها ليست حقيقية."
+              className="self-start rounded-full border border-rule-strong px-3 py-[3px] text-xs text-muted lg:self-auto"
+            >
+              بيانات تجريبية
+            </span>
+          )}
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1 border-y border-rule py-3 text-sm">
           <span className="font-semibold">أولوياتك الحالية:</span>
-          <span className="text-body">{summarizePreferences(preferences)}</span>
+          <span className="text-body">{summarizePreferences(preferences, articleType)}</span>
           <Link
             href="/preferences"
             className="text-ink underline underline-offset-4 hover:text-terracotta-text"
@@ -152,7 +159,6 @@ export function JournalResults({ matches, preferences, nextHref }: JournalResult
             "اختر مجلة واحدة لتبدأ تجهيز بحثك لها."
           )}
         </p>
-
         {compareIds.length > 0 && (
           <button
             type="button"
@@ -163,7 +169,6 @@ export function JournalResults({ matches, preferences, nextHref }: JournalResult
             {compareIds.length < MAX_COMPARE ? "اختر مجلة أخرى للمقارنة" : "مقارنة المجلتين"}
           </button>
         )}
-
         {selected ? (
           <Link
             href={`${nextHref}?journal=${selected.journalId}`}

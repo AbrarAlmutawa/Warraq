@@ -92,7 +92,7 @@ export function JournalFilters({
 
       <FilterGroup id="filter-review" label="سرعة المراجعة">
         <Chip pressed={filters.fastReview} onClick={() => toggle("fastReview")}>
-          أقل من {reviewThreshold} يومًا
+          {reviewThreshold} يومًا أو أقل
         </Chip>
       </FilterGroup>
 
