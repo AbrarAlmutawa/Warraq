@@ -1,25 +1,17 @@
-import type { Metadata } from "next";
-import { JourneySteps } from "@/components/layout/JourneySteps";
-import { SiteHeader } from "@/components/layout/SiteHeader";
-import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
-import { resolveWorkspaceJournalId } from "@/lib/workspace/journals";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "مساحة التجهيز - وَرَّاق",
-};
+/*
+ * The old mock route. The real workspace lives at /workspace; this only forwards,
+ * keeping the requested journal, and renders nothing itself.
+ */
 
-type WorkspaceDemoPageProps = {
+type WorkspaceDemoRedirectProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function WorkspaceDemoPage({ searchParams }: WorkspaceDemoPageProps) {
+export default async function WorkspaceDemoRedirect({ searchParams }: WorkspaceDemoRedirectProps) {
   const params = await searchParams;
-  const initialJournalId = resolveWorkspaceJournalId(params.journal);
-
-  return (
-    <div className="flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
-      <SiteHeader aside={<JourneySteps current="preparation" />} />
-      <WorkspaceShell key={initialJournalId} initialJournalId={initialJournalId} />
-    </div>
-  );
+  const raw = Array.isArray(params.journal) ? params.journal[0] : params.journal;
+  const journalId = raw?.trim();
+  redirect(journalId ? `/workspace?journal=${encodeURIComponent(journalId)}` : "/workspace");
 }

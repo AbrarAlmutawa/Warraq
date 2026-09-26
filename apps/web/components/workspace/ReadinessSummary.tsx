@@ -1,5 +1,5 @@
 import { readinessStatus } from "@/lib/workspace/readiness";
-import type { ReadinessSummary, RequirementResult } from "@/lib/workspace/types";
+import type { ReadinessSummary, RequirementStatus } from "@/lib/workspace/types";
 
 export function ReadinessCounts({ summary }: { summary: ReadinessSummary }) {
   return (
@@ -17,7 +17,7 @@ export function ReadinessCounts({ summary }: { summary: ReadinessSummary }) {
   );
 }
 
-const TICK_CLASS: Record<RequirementResult["status"], string> = {
+const TICK_CLASS: Record<RequirementStatus, string> = {
   failed: "h-2.5 flex-1 bg-terracotta",
   review: "h-2.5 flex-1 border-[1.5px] border-dashed border-subtle",
   passed: "h-2.5 flex-1 bg-mint",
@@ -28,7 +28,8 @@ export function ReadinessPanelSummary({
   results,
 }: {
   summary: ReadinessSummary;
-  results: RequirementResult[];
+  /* Only each check's status is used, for the tick bar; the counts come from `summary`. */
+  results: ReadonlyArray<{ status: RequirementStatus }>;
 }) {
   const status = readinessStatus(summary);
   const ordered = [
@@ -66,8 +67,8 @@ export function ReadinessPanelSummary({
       </div>
 
       <div aria-hidden="true" className="mt-3 flex gap-0.5">
-        {ordered.map((result) => (
-          <span key={result.id} className={TICK_CLASS[result.status]} />
+        {ordered.map((result, index) => (
+          <span key={index} className={TICK_CLASS[result.status]} />
         ))}
       </div>
     </section>

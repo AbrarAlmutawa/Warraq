@@ -44,7 +44,7 @@ const RULER_COLOR: Record<DecorationKind, string> = {
 
 const EDITOR_OPTIONS: EditorProps["options"] = {
   readOnly: true,
-  readOnlyMessage: { value: "في هذا النموذج تُعدَّل المخطوطة عبر إجراءات لوحة المتطلبات والاقتراحات." },
+  readOnlyMessage: { value: "هذه معاينة للقراءة فقط. صحّح المخطوطة في ملف Word ثم ارفعها من جديد لإعادة الفحص." },
   ariaLabel: "نص المخطوطة",
   wordWrap: "on",
   wrappingIndent: "none",

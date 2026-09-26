@@ -1,8 +1,9 @@
+import { FIGURES, REFERENCES, TABLES, WORDS, arabicCount } from "@/lib/analysis/stages";
 import type { WorkspaceDecoration } from "@/lib/workspace/decorations";
-import type { CitationStyle, DocumentSection, ManuscriptFormat } from "@/lib/workspace/types";
+import type { BlockSection } from "@/lib/workspace/types";
 
 type SectionNavigatorProps = {
-  sections: DocumentSection[];
+  sections: BlockSection[];
   decorations: WorkspaceDecoration[];
   lineCount: number;
   stats: {
@@ -10,22 +11,15 @@ type SectionNavigatorProps = {
     referenceCount: number;
     figureCount: number;
     tableCount: number;
-    citationStyle: CitationStyle;
-    format: ManuscriptFormat;
+    /** Backend-measured citation style; null when not measured for this journal */
+    citationStyle: string | null;
   };
-  onNavigate: (section: DocumentSection) => void;
+  onNavigate: (section: BlockSection) => void;
 };
 
 type Marker = { text: string; className: string; srText: string };
 
-function sectionMarker(section: DocumentSection, nextLine: number, decorations: WorkspaceDecoration[]): Marker {
-  if (section.missing) {
-    return {
-      text: "مطلوب · غير موجود",
-      className: "text-[11px] font-bold text-terracotta-text",
-      srText: "قسم مطلوب غير موجود",
-    };
-  }
+function sectionMarker(section: BlockSection, nextLine: number, decorations: WorkspaceDecoration[]): Marker {
   const inSection = decorations.filter(
     (decoration) => decoration.range.startLineNumber >= section.line && decoration.range.startLineNumber < nextLine,
   );
@@ -38,13 +32,6 @@ function sectionMarker(section: DocumentSection, nextLine: number, decorations: 
   }
   if (unique("review") > 0) {
     return { text: "◐", className: "text-xs font-bold text-muted", srText: "بند يحتاج مراجعة" };
-  }
-  if (unique("soft") > 0) {
-    return {
-      text: "اقتراح",
-      className: "border border-dotted border-olive px-1.5 text-[11px] font-semibold text-olive-text",
-      srText: "اقتراح من وَرَّاق",
-    };
   }
   return { text: "✓", className: "text-xs font-bold text-mint-text", srText: "لا ملاحظات" };
 }
@@ -61,15 +48,19 @@ export function SectionNavigator({ sections, decorations, lineCount, stats, onNa
           const nextLine = sections[index + 1]?.line ?? lineCount + 1;
           const marker = sectionMarker(section, nextLine, decorations);
           return (
-            <li key={`${section.id}-${section.line}`}>
+            <li key={section.blockId}>
               <button
                 type="button"
                 onClick={() => onNavigate(section)}
                 className="flex min-h-9 w-full items-center justify-between gap-2 rounded-[3px] px-2 py-1.5 text-start hover:bg-paper-raised"
               >
-                <span dir="ltr" className={`font-latin text-[13px] ${section.missing ? "text-muted italic" : ""}`}>
-                  {section.label}
-                </span>
+                {section.kind === "title" ? (
+                  <span className="text-[13px]">العنوان</span>
+                ) : (
+                  <span dir="ltr" className="font-latin text-[13px]">
+                    {section.label}
+                  </span>
+                )}
                 <span aria-hidden="true" className={marker.className}>
                   {marker.text}
                 </span>
@@ -82,19 +73,24 @@ export function SectionNavigator({ sections, decorations, lineCount, stats, onNa
 
       <div className="mt-auto flex flex-col gap-1.5 border-t border-rule px-2 pt-3 text-xs text-muted">
         <span>
-          {stats.wordCount.toLocaleString("en-US")} كلمة · {stats.referenceCount} مرجعًا
+          {arabicCount(stats.wordCount, WORDS)} · {arabicCount(stats.referenceCount, REFERENCES)}
         </span>
         <span>
-          {stats.figureCount} أشكال · {stats.tableCount} جداول
+          {arabicCount(stats.figureCount, FIGURES)} · {arabicCount(stats.tableCount, TABLES)}
         </span>
         <span>
-          الاستشهاد:{" "}
+          {stats.citationStyle && (
+            <>
+              الاستشهاد:{" "}
+              <span dir="ltr" className="font-latin font-semibold text-ink">
+                {stats.citationStyle}
+              </span>{" "}
+              ·{" "}
+            </>
+          )}
+          الصيغة:{" "}
           <span dir="ltr" className="font-latin font-semibold text-ink">
-            {stats.citationStyle}
-          </span>{" "}
-          · الصيغة:{" "}
-          <span dir="ltr" className="font-latin font-semibold text-ink">
-            {stats.format === "latex" ? "LaTeX" : "DOCX"}
+            DOCX
           </span>
         </span>
         <span className="leading-relaxed">تغيير المجلة لا يعيد تحليل البحث.</span>

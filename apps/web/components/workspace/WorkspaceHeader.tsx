@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { ReadinessCounts } from "@/components/workspace/ReadinessSummary";
-import type { JournalMatch } from "@/lib/journals/types";
+import type { JournalSummary } from "@/lib/journals/types";
 import type { ReadinessSummary } from "@/lib/workspace/types";
 
 type WorkspaceHeaderProps = {
-  journal: JournalMatch;
+  journal: JournalSummary;
   summary: ReadinessSummary;
   readyHref: string;
-  onSwitchJournal: () => void;
+  /* Omitted until real journal switching exists (Phase 5); the button is then not shown. */
+  onSwitchJournal?: () => void;
 };
 
 export function WorkspaceHeader({ journal, summary, readyHref, onSwitchJournal }: WorkspaceHeaderProps) {
@@ -22,27 +23,36 @@ export function WorkspaceHeader({ journal, summary, readyHref, onSwitchJournal }
           <span dir="ltr" className="font-latin">
             {journal.name}
           </span>
-          <span className="font-normal text-muted">
-            {" "}
-            ·{" "}
-            <span dir="ltr" className="font-latin">
-              {journal.shortName}
+          {journal.shortName && (
+            <span className="font-normal text-muted">
+              {" "}
+              ·{" "}
+              <span dir="ltr" className="font-latin">
+                {journal.shortName}
+              </span>
             </span>
-          </span>
+          )}
         </span>
       </div>
 
-      <button
-        type="button"
-        onClick={onSwitchJournal}
-        className="h-10 shrink-0 rounded-[3px] bg-terracotta px-4 text-sm font-bold text-ink hover:bg-terracotta/90"
-      >
-        تغيير المجلة
-      </button>
+      {onSwitchJournal && (
+        <button
+          type="button"
+          onClick={onSwitchJournal}
+          className="h-10 shrink-0 rounded-[3px] bg-terracotta px-4 text-sm font-bold text-ink hover:bg-terracotta/90"
+        >
+          تغيير المجلة
+        </button>
+      )}
 
-      <span className="shrink-0 rounded-full border border-rule-strong px-3 py-[3px] text-xs text-muted">
-        بيانات تجريبية
-      </span>
+      {journal.sourceIsDemo && (
+        <span
+          title="مجلة تجريبية وهمية لأغراض العرض؛ متطلباتها ليست حقيقية."
+          className="shrink-0 rounded-full border border-rule-strong px-3 py-[3px] text-xs text-muted"
+        >
+          بيانات تجريبية
+        </span>
+      )}
 
       <div className="hidden flex-1 lg:block" />
 

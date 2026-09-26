@@ -11,8 +11,7 @@ export default function JournalsPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader aside={<JourneySteps current="journal" />} />
-      {/* Interim until Phase 4: the workspace route is still the mock /workspace/demo. */}
-      <JournalsFlow nextHref="/workspace/demo" />
+      <JournalsFlow nextHref="/workspace" />
     </div>
   );
 }

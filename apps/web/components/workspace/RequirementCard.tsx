@@ -1,36 +1,22 @@
-import type { RequirementResult } from "@/lib/workspace/types";
+import { requirementLabel, requirementMessage } from "@/lib/workspace/requirement-labels";
+import type { WorkspaceRequirement } from "@/lib/workspace/types";
 
 type RequirementCardProps = {
-  result: RequirementResult;
+  requirement: WorkspaceRequirement;
   selected: boolean;
   canGoToText: boolean;
   onGoToText: () => void;
   onShowSource: () => void;
-  onApplyFix: () => void;
 };
 
-export function RequirementCard({
-  result,
-  selected,
-  canGoToText,
-  onGoToText,
-  onShowSource,
-  onApplyFix,
-}: RequirementCardProps) {
-  const isReview = result.status === "review";
-  const fix = result.fix;
-
-  const fixClass = !fix
-    ? ""
-    : fix.kind === "confirm-review"
-      ? "h-9 rounded-[3px] border-[1.5px] border-ink px-3 text-[13px] font-semibold hover:bg-paper"
-      : fix.simulated
-        ? "h-9 rounded-[3px] border border-dashed border-muted px-3 text-[13px] text-body hover:border-ink"
-        : "h-9 rounded-[3px] bg-ink px-3 text-[13px] font-semibold text-paper hover:bg-ink/90";
+export function RequirementCard({ requirement, selected, canGoToText, onGoToText, onShowSource }: RequirementCardProps) {
+  const isReview = requirement.status === "review";
+  const label = requirementLabel(requirement);
+  const message = requirementMessage(requirement);
 
   return (
     <article
-      id={`req-card-${result.id}`}
+      id={`req-card-${requirement.ruleId}`}
       className={`rounded-[4px] p-4 ${
         isReview
           ? "border-[1.5px] border-dashed border-subtle bg-paper-raised"
@@ -45,31 +31,51 @@ export function RequirementCard({
             ✕ متطلب المجلة
           </span>
         )}
-        <span className="text-xs text-muted">{result.label}</span>
+        <span className="text-xs text-muted">
+          {label.latin ? (
+            <span dir="ltr" className="font-latin">
+              {label.text}
+            </span>
+          ) : (
+            label.text
+          )}
+        </span>
         {selected && <span className="sr-only">(البند المحدد)</span>}
       </div>
 
-      <p className="mt-2 text-[14.5px] leading-relaxed font-semibold">{result.message}</p>
+      <p className="mt-2 text-[14.5px] leading-relaxed font-semibold">
+        {message.latin ? (
+          <span dir="ltr" className="block font-latin">
+            {message.text}
+          </span>
+        ) : (
+          message.text
+        )}
+      </p>
 
-      {result.field === "citations" && result.measured ? (
+      {requirement.ruleId === "citation_style" && requirement.measured ? (
         <p className="mt-1 text-[13px]">
           <span dir="ltr" className="font-latin font-bold">
-            {result.measured} → {result.requirement}
+            {requirement.measured} → {requirement.requirement}
           </span>
         </p>
       ) : (
         <p className="mt-1 text-[12.5px] text-body">
-          {result.measured && (
+          {requirement.measured && (
             <>
-              في بحثك: <span className={isReview ? "font-semibold" : "font-bold text-terracotta-text"}>{result.measured}</span>
+              في بحثك:{" "}
+              <span dir="ltr" className={`font-latin ${isReview ? "font-semibold" : "font-bold text-terracotta-text"}`}>
+                {requirement.measured}
+              </span>
               {" · "}
             </>
           )}
-          الشرط: {result.requirement}
+          الشرط:{" "}
+          <span dir="ltr" className="font-latin">
+            {requirement.requirement}
+          </span>
         </p>
       )}
-
-      {result.note && <p className="mt-2 text-[12.5px] leading-relaxed text-body">{result.note}</p>}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {canGoToText && (
@@ -88,12 +94,6 @@ export function RequirementCard({
         >
           عرض المصدر
         </button>
-        <span className="flex-1" />
-        {fix && (
-          <button type="button" onClick={onApplyFix} className={fixClass}>
-            {fix.label}
-          </button>
-        )}
       </div>
     </article>
   );
