@@ -5,10 +5,12 @@ import type {
   OpenAccessPreference,
 } from "@/lib/preferences/types";
 
-export const ARTICLE_TYPE_OPTIONS: ChoiceOption<ArticleType>[] = [
-  { value: "original-research", label: "بحث أصيل" },
-  { value: "review", label: "مراجعة علمية" },
-  { value: "short-communication", label: "اتصال قصير" },
+/* Researcher-selected; null = no article-type filter. */
+export const ARTICLE_TYPE_OPTIONS: ChoiceOption<ArticleType | null>[] = [
+  { value: "original-research", label: "بحث أصيل", summary: "نوع المقال: بحث أصيل" },
+  { value: "review", label: "مراجعة علمية", summary: "نوع المقال: مراجعة علمية" },
+  { value: "short-communication", label: "اتصال قصير", summary: "نوع المقال: اتصال قصير" },
+  { value: null, label: "لا يهم", summary: "نوع المقال لا يهم" },
 ];
 
 export const APC_OPTIONS: ChoiceOption<number | null>[] = [
@@ -24,9 +26,10 @@ export const OPEN_ACCESS_OPTIONS: ChoiceOption<OpenAccessPreference>[] = [
   { value: "any", label: "لا يهم", summary: "الوصول المفتوح لا يهم" },
 ];
 
+/* The matcher keeps journals whose average review time is at most this many days. */
 export const REVIEW_SPEED_OPTIONS: ChoiceOption<number | null>[] = [
-  { value: 30, label: "أقل من 30 يومًا", summary: "مراجعة أقل من 30 يومًا" },
-  { value: 60, label: "أقل من 60 يومًا", summary: "مراجعة أقل من 60 يومًا" },
+  { value: 30, label: "30 يومًا أو أقل", summary: "مراجعة خلال 30 يومًا أو أقل" },
+  { value: 60, label: "60 يومًا أو أقل", summary: "مراجعة خلال 60 يومًا أو أقل" },
   { value: null, label: "لا يهم", summary: "السرعة لا تهم" },
 ];
 
@@ -34,7 +37,3 @@ export const INDEX_OPTIONS: ChoiceOption<JournalIndex>[] = [
   { value: "scopus", label: "Scopus", latin: true },
   { value: "wos", label: "Web of Science", latin: true },
 ];
-
-export function articleTypeLabel(value: ArticleType): string {
-  return ARTICLE_TYPE_OPTIONS.find((option) => option.value === value)?.label ?? "";
-}

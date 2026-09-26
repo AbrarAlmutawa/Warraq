@@ -1,18 +1,26 @@
 import { MultiChoiceGroup, SingleChoiceGroup } from "@/components/preferences/ChoiceGroup";
 import {
   APC_OPTIONS,
+  ARTICLE_TYPE_OPTIONS,
   INDEX_OPTIONS,
   OPEN_ACCESS_OPTIONS,
   REVIEW_SPEED_OPTIONS,
 } from "@/lib/preferences/options";
-import type { JournalIndex, JournalPreferences } from "@/lib/preferences/types";
+import type { ArticleType, JournalIndex, JournalPreferences } from "@/lib/preferences/types";
 
 type PrioritiesSectionProps = {
   preferences: JournalPreferences;
   onChange: (next: JournalPreferences) => void;
+  articleType: ArticleType | null;
+  onArticleTypeChange: (next: ArticleType | null) => void;
 };
 
-export function PrioritiesSection({ preferences, onChange }: PrioritiesSectionProps) {
+export function PrioritiesSection({
+  preferences,
+  onChange,
+  articleType,
+  onArticleTypeChange,
+}: PrioritiesSectionProps) {
   const update = <K extends keyof JournalPreferences>(key: K, value: JournalPreferences[K]) => {
     onChange({ ...preferences, [key]: value });
   };
@@ -38,6 +46,14 @@ export function PrioritiesSection({ preferences, onChange }: PrioritiesSectionPr
 
       <div className="mt-6 flex flex-col gap-6">
         <SingleChoiceGroup
+          legend="نوع المقال"
+          hint="نستبعد المجلات التي تعلن أنها لا تقبل هذا النوع من المقالات."
+          name="article-type"
+          options={ARTICLE_TYPE_OPTIONS}
+          value={articleType}
+          onChange={onArticleTypeChange}
+        />
+        <SingleChoiceGroup
           legend="رسوم النشر"
           hint="الرسوم التي تدفعها عند قبول البحث (APC)."
           name="apc"
@@ -47,6 +63,7 @@ export function PrioritiesSection({ preferences, onChange }: PrioritiesSectionPr
         />
         <SingleChoiceGroup
           legend="الوصول المفتوح"
+          hint="حدد مدى أهمية إتاحة البحث للقراءة بوصول مفتوح."
           name="open-access"
           options={OPEN_ACCESS_OPTIONS}
           value={preferences.openAccess}
@@ -54,6 +71,7 @@ export function PrioritiesSection({ preferences, onChange }: PrioritiesSectionPr
         />
         <SingleChoiceGroup
           legend="سرعة المراجعة"
+          hint="المدة المتوقعة لمراجعة البحث قبل قرار المجلة."
           name="review-speed"
           options={REVIEW_SPEED_OPTIONS}
           value={preferences.maxReviewDays}
@@ -61,7 +79,7 @@ export function PrioritiesSection({ preferences, onChange }: PrioritiesSectionPr
         />
         <MultiChoiceGroup
           legend="الفهرسة"
-          hint="يمكنك اختيار أكثر من فهرس."
+          hint="إذا اخترت أكثر من فهرس، نعرض المجلات المفهرسة فيها جميعًا."
           name="indexing"
           options={INDEX_OPTIONS}
           values={preferences.requiredIndexes}

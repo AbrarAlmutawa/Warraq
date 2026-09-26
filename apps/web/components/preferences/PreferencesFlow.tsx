@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   JOURNEY_ACTION_PRIMARY,
@@ -12,9 +13,10 @@ import { UnderstandingSection } from "@/components/preferences/UnderstandingSect
 import { toManuscriptUnderstanding } from "@/lib/api-adapters";
 import { getManuscript, isNotFound } from "@/lib/api-client";
 import { describeError, type ErrorPresentation } from "@/lib/api-errors";
+import { neutralJournalPreferences } from "@/lib/preferences/defaults";
 import { summarizePreferences } from "@/lib/preferences/summary";
-import type { JournalPreferences, ManuscriptUnderstanding } from "@/lib/preferences/types";
-import { clearSession, readSession } from "@/lib/session";
+import type { ArticleType, JournalPreferences, ManuscriptUnderstanding } from "@/lib/preferences/types";
+import { clearSession, readSession, updateSession } from "@/lib/session";
 
 type LoadState =
   /* First render (server and client): nothing is known yet. */
@@ -26,14 +28,12 @@ type LoadState =
   | { status: "ready"; understanding: ManuscriptUnderstanding; isDemoManuscript: boolean }
   | { status: "error"; error: ErrorPresentation };
 
-type PreferencesFlowProps = {
-  initialPreferences: JournalPreferences;
-};
-
-export function PreferencesFlow({ initialPreferences }: PreferencesFlowProps) {
+export function PreferencesFlow() {
+  const router = useRouter();
   const [load, setLoad] = useState<LoadState>({ status: "checking" });
   const [attempt, setAttempt] = useState(0);
-  const [preferences, setPreferences] = useState(initialPreferences);
+  const [preferences, setPreferences] = useState<JournalPreferences>(neutralJournalPreferences);
+  const [articleType, setArticleType] = useState<ArticleType | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +47,11 @@ export function PreferencesFlow({ initialPreferences }: PreferencesFlowProps) {
       if (!session) {
         apply({ status: "no-session" });
         return;
+      }
+      if (!cancelled) {
+        // The researcher's saved choices for this manuscript, or neutral defaults for a new one.
+        setPreferences(session.preferences ?? neutralJournalPreferences());
+        setArticleType(session.articleType);
       }
       apply({ status: "loading" });
       getManuscript(session.manuscriptId).then(
@@ -72,6 +77,32 @@ export function PreferencesFlow({ initialPreferences }: PreferencesFlowProps) {
   const retry = () => {
     setLoad({ status: "checking" });
     setAttempt((current) => current + 1);
+  };
+
+  // Saved on every change so a refresh keeps the researcher's choices. Any earlier match
+  // results were produced under different priorities, so they are dropped.
+  const persist = (nextPreferences: JournalPreferences, nextArticleType: ArticleType | null) => {
+    updateSession({ preferences: nextPreferences, articleType: nextArticleType, lastMatch: null });
+  };
+
+  const changePreferences = (next: JournalPreferences) => {
+    setPreferences(next);
+    persist(next, articleType);
+  };
+
+  const changeArticleType = (next: ArticleType | null) => {
+    setArticleType(next);
+    persist(preferences, next);
+  };
+
+  const suggestJournals = () => {
+    // Also covers researchers who keep the defaults without changing anything.
+    const saved = updateSession({ preferences, articleType });
+    if (!saved) {
+      setLoad({ status: "no-session" });
+      return;
+    }
+    router.push("/journals");
   };
 
   if (load.status === "no-session") {
@@ -140,24 +171,30 @@ export function PreferencesFlow({ initialPreferences }: PreferencesFlowProps) {
         <UnderstandingSection understanding={load.understanding} isDemoManuscript={load.isDemoManuscript} />
         <div aria-hidden="true" className="hidden w-px shrink-0 bg-rule lg:block" />
         <hr className="border-rule lg:hidden" />
-        <PrioritiesSection preferences={preferences} onChange={setPreferences} />
+        <PrioritiesSection
+          preferences={preferences}
+          onChange={changePreferences}
+          articleType={articleType}
+          onArticleTypeChange={changeArticleType}
+        />
       </main>
 
       <footer className="sticky bottom-0 z-10 flex shrink-0 flex-wrap items-center gap-x-6 gap-y-3 border-t border-rule bg-paper px-6 py-4 lg:h-[88px] lg:flex-nowrap lg:px-[72px] lg:py-0">
         <p className="min-w-0 flex-1 basis-full text-sm leading-relaxed text-body lg:basis-auto">
           <span className="font-semibold text-ink">أولوياتك: </span>
-          {summarizePreferences(preferences)}
+          {summarizePreferences(preferences, articleType)}
         </p>
         <Link href="/analysis" className="text-sm text-muted underline underline-offset-4 hover:text-ink">
           العودة إلى التحليل
         </Link>
-        <Link
-          href="/journals"
+        <button
+          type="button"
+          onClick={suggestJournals}
           className="inline-flex h-12 items-center gap-2 rounded-[3px] bg-ink px-6 text-[15px] font-bold text-paper hover:bg-ink/90"
         >
           اقتراح المجلات
           <span aria-hidden="true">←</span>
-        </Link>
+        </button>
       </footer>
     </>
   );
