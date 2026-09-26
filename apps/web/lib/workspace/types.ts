@@ -1,5 +1,12 @@
 import type { ExtractionConfidence } from "@/lib/journals/types";
 
+/*
+ * The first part of this file (manuscript, editor document, journal rules, validation,
+ * suggestions) describes the MOCK workspace and is kept only while the mock /ready screen and
+ * SwitchJournalDialog still compile against it (retired in Phases 5 and 7). The real workspace
+ * types are at the end ("Real workspace").
+ */
+
 /* ───────── Manuscript (parsed once) ───────── */
 
 export type CitationStyle = "APA" | "IEEE";
@@ -226,3 +233,54 @@ export type SelectedItem = {
 };
 
 export type PanelTab = "requirements" | "suggestions";
+
+/* ───────── Real workspace (backend data) ───────── */
+
+/* An action the backend offers for a failed rule (SuggestedFix). Carried now, used in Phase 6. */
+export type WorkspaceSuggestedFix = {
+  kind: string;
+  label: string;
+  params: Record<string, string>;
+};
+
+/*
+ * One requirement check from POST /validate (RequirementResult), via lib/api-adapters.ts.
+ * requirement / measured / backendLabel / backendMessage are the backend's own (English) text,
+ * shown unchanged where values matter; Arabic presentation comes from requirement-labels.ts.
+ */
+export type WorkspaceRequirement = {
+  /** Stable backend id, e.g. "title_length", "statement:funding"; also the selection id */
+  ruleId: string;
+  field: string;
+  backendLabel: string;
+  /** What the journal requires, e.g. "<= 15 words" */
+  requirement: string;
+  /** What the manuscript has, e.g. "20 words"; null when not measured */
+  measured: string | null;
+  status: RequirementStatus;
+  backendMessage: string;
+  /** Parsed-block ids to highlight; empty when there is no place in the text (e.g. a missing statement) */
+  blockIds: string[];
+  suggestedFix: WorkspaceSuggestedFix | null;
+  /** Trust in the extracted rule (not in the check) */
+  confidence: ExtractionConfidence;
+  sourceExcerpt: string | null;
+  sourceUrl: string | null;
+};
+
+/* A navigation entry: the title block or a heading block, labelled with its real text. */
+export type BlockSection = {
+  blockId: string;
+  kind: "title" | "heading";
+  label: string;
+  line: number;
+};
+
+/* The Monaco document built from parsed.blocks (lib/workspace/block-document.ts). */
+export type BlockDocument = {
+  text: string;
+  lineCount: number;
+  /** Parsed-block id → the editor range of its line */
+  blockRanges: ReadonlyMap<string, EditorRange>;
+  sections: BlockSection[];
+};

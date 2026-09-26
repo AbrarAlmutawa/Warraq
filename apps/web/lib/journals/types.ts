@@ -6,25 +6,17 @@ export type OpenAccessModel = "full" | "hybrid" | "subscription" | "unknown";
 export type ExtractionConfidence = "high" | "medium" | "low";
 
 /*
- * One ranked recommendation from POST /match (JournalMatchView, via lib/api-adapters.ts),
- * already ordered by the matcher. Facts the journal does not publish are null / empty:
- * the matcher never excludes a journal for missing data, and neither does the UI.
+ * One journal's published facts (GET /journals JournalSummary, via lib/api-adapters.ts).
+ * Facts the journal does not publish are null / empty: the matcher never excludes a journal
+ * for missing data, and neither does the UI.
  *
  * Also used by the workspace and ready screens; the field names they read are kept stable.
  */
-export type JournalMatch = {
+export type JournalSummary = {
   journalId: string;
   name: string;
   shortName: string | null;
   publisher: string;
-
-  /** 1-based position in the matcher's ranking */
-  rank: number;
-  scopeFit: ScopeFit;
-  /** The matcher's semantic similarity between the manuscript and the journal scope, 0–1 */
-  similarityScore: number;
-  /** Manuscript topics that also appear in the journal's stated scope (English, as published) */
-  matchedTopics: string[];
 
   /** 0 = no publication fee; null = not published */
   apcUsd: number | null;
@@ -44,6 +36,20 @@ export type JournalMatch = {
   needsHumanReview: boolean;
   /** ISO date, e.g. "2026-09-18" */
   lastCheckedAt: string;
+};
+
+/*
+ * One ranked recommendation from POST /match (JournalMatchView), already ordered by the matcher:
+ * the journal's facts plus the matcher's ranking and scope explanation.
+ */
+export type JournalMatch = JournalSummary & {
+  /** 1-based position in the matcher's ranking */
+  rank: number;
+  scopeFit: ScopeFit;
+  /** The matcher's semantic similarity between the manuscript and the journal scope, 0–1 */
+  similarityScore: number;
+  /** Manuscript topics that also appear in the journal's stated scope (English, as published) */
+  matchedTopics: string[];
 };
 
 /*

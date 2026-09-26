@@ -1,11 +1,5 @@
-import type {
-  EditorRange,
-  ManuscriptDocument,
-  RequirementResult,
-  SelectedItem,
-  SuggestionStatus,
-  WarraqSuggestion,
-} from "@/lib/workspace/types";
+import { REQUIREMENT_STATUS_PREFIX, requirementLabel } from "@/lib/workspace/requirement-labels";
+import type { BlockDocument, EditorRange, SelectedItem, WorkspaceRequirement } from "@/lib/workspace/types";
 
 export type DecorationKind = "hard" | "soft" | "review";
 
@@ -17,38 +11,39 @@ export type WorkspaceDecoration = {
   selected: boolean;
 };
 
-/* Only known spans are decorated; passed requirements get no inline decoration. */
-export function buildDecorations(
-  document: ManuscriptDocument,
-  results: RequirementResult[],
-  suggestions: WarraqSuggestion[],
-  statuses: Record<string, SuggestionStatus>,
+/*
+ * Editor ranges of a requirement's block_ids that exist in the document.
+ * Ids the document does not contain are ignored; an empty result means "no place in the text".
+ */
+export function requirementRanges(document: BlockDocument, requirement: WorkspaceRequirement): EditorRange[] {
+  const ranges: EditorRange[] = [];
+  for (const blockId of requirement.blockIds) {
+    const range = document.blockRanges.get(blockId);
+    if (range) ranges.push(range);
+  }
+  return ranges;
+}
+
+/*
+ * Backend status → existing decoration styles: failed = hard, review = review, passed = none.
+ * Only block_ids present in the document are decorated.
+ */
+export function buildRequirementDecorations(
+  document: BlockDocument,
+  requirements: WorkspaceRequirement[],
   selected: SelectedItem | null,
 ): WorkspaceDecoration[] {
   const decorations: WorkspaceDecoration[] = [];
-  const isSelected = (target: SelectedItem) => selected?.type === target.type && selected.id === target.id;
 
-  for (const result of results) {
-    if (result.status === "passed" || !result.anchor) continue;
-    const kind: DecorationKind = result.status === "failed" ? "hard" : "review";
-    const target: SelectedItem = { type: "requirement", id: result.id };
-    const prefix = kind === "hard" ? "✕ متطلب المجلة" : "◐ بحاجة إلى مراجعة";
-    for (const range of document.anchors[result.anchor] ?? []) {
-      decorations.push({ range, kind, target, message: `${prefix}: ${result.message}`, selected: isSelected(target) });
-    }
-  }
+  for (const requirement of requirements) {
+    if (requirement.status === "passed") continue;
+    const kind: DecorationKind = requirement.status === "failed" ? "hard" : "review";
+    const target: SelectedItem = { type: "requirement", id: requirement.ruleId };
+    const isSelected = selected?.type === "requirement" && selected.id === requirement.ruleId;
+    const message = `${REQUIREMENT_STATUS_PREFIX[requirement.status]}: ${requirementLabel(requirement).text}`;
 
-  for (const suggestion of suggestions) {
-    if (statuses[suggestion.id] !== "pending") continue;
-    const target: SelectedItem = { type: "suggestion", id: suggestion.id };
-    for (const range of document.anchors[`suggestion:${suggestion.id}`] ?? []) {
-      decorations.push({
-        range,
-        kind: "soft",
-        target,
-        message: `اقتراح من وَرَّاق: ${suggestion.title}`,
-        selected: isSelected(target),
-      });
+    for (const range of requirementRanges(document, requirement)) {
+      decorations.push({ range, kind, target, message, selected: isSelected });
     }
   }
 
