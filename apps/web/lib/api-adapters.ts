@@ -1,5 +1,5 @@
-import type { ApiMatchPreferencesRequest } from "@/lib/api-client";
-import type { ArticleType, JournalPreferences } from "@/lib/preferences/types";
+import type { ApiMatchPreferencesRequest, ApiParsedManuscript } from "@/lib/api-client";
+import type { ArticleType, JournalPreferences, ManuscriptUnderstanding } from "@/lib/preferences/types";
 
 /*
  * The single place where backend (snake_case) shapes and frontend (camelCase) shapes meet.
@@ -10,6 +10,24 @@ import type { ArticleType, JournalPreferences } from "@/lib/preferences/types";
  *
  * Adapters are added phase by phase, next to the frontend types they produce.
  */
+
+/* ───────── Manuscript (ManuscriptParsedData → read-only understanding) ───────── */
+
+/*
+ * main_text_word_count (not full_document_word_count) is the figure the backend's
+ * word_count rule measures, so the researcher sees the same number the checklist uses.
+ */
+export function toManuscriptUnderstanding(parsed: ApiParsedManuscript): ManuscriptUnderstanding {
+  return {
+    title: parsed.title.trim(),
+    keywords: parsed.keywords.map((keyword) => keyword.trim()).filter(Boolean),
+    mainTextWordCount: parsed.main_text_word_count,
+    abstractWordCount: parsed.abstract_word_count,
+    referenceCount: parsed.reference_count,
+    figureCount: parsed.figure_count,
+    tableCount: parsed.table_count,
+  };
+}
 
 /* ───────── Preferences → POST /match (docs/contracts.md, "Frontend preferences → /match request") ───────── */
 

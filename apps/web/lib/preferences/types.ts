@@ -1,12 +1,16 @@
 export type ArticleType = "original-research" | "review" | "short-communication";
 
+/*
+ * What Warraq read from the uploaded manuscript (ManuscriptParsedData via lib/api-adapters.ts).
+ * Read-only: corrections are made in the Word file and re-uploaded. The backend exposes no
+ * topic, article type or citation style, so none are represented here.
+ */
 export type ManuscriptUnderstanding = {
-  topic: string;
-  articleType: ArticleType;
+  title: string;
   keywords: string[];
-  citationStyle: string;
+  mainTextWordCount: number;
+  abstractWordCount: number;
   referenceCount: number;
-  wordCount: number;
   figureCount: number;
   tableCount: number;
 };
