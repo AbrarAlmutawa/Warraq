@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CompareDialog } from "@/components/journals/CompareDialog";
+import { CompareDialog, type ReadinessEntry } from "@/components/journals/CompareDialog";
 import { JournalFilters } from "@/components/journals/JournalFilters";
 import { JournalResultRow } from "@/components/journals/JournalResultRow";
 import { SourceDialog } from "@/components/journals/SourceDialog";
+import { toJournalReadiness } from "@/lib/api-adapters";
+import { compareReadiness } from "@/lib/api-client";
+import { describeError } from "@/lib/api-errors";
 import {
   EMPTY_JOURNAL_FILTERS,
   activeFilterCount,
@@ -13,11 +16,12 @@ import {
   reviewThresholdDays,
   type JournalFilterState,
 } from "@/lib/journals/filters";
-import type { JournalMatch } from "@/lib/journals/types";
+import type { JournalMatch, JournalReadiness } from "@/lib/journals/types";
 import { summarizePreferences } from "@/lib/preferences/summary";
 import type { ArticleType, JournalPreferences } from "@/lib/preferences/types";
 
 type JournalResultsProps = {
+  manuscriptId: string;
   matches: JournalMatch[];
   preferences: JournalPreferences;
   articleType: ArticleType | null;
@@ -26,12 +30,18 @@ type JournalResultsProps = {
 
 const MAX_COMPARE = 2;
 
-export function JournalResults({ matches, preferences, articleType, nextHref }: JournalResultsProps) {
+export function JournalResults({ manuscriptId, matches, preferences, articleType, nextHref }: JournalResultsProps) {
   const [filters, setFilters] = useState<JournalFilterState>(EMPTY_JOURNAL_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
+  /*
+   * Readiness per journal id, from POST /validate/compare, for the life of this results page.
+   * The manuscript cannot change within a journey, so a journal's readiness is fetched once.
+   * "error" entries are not results: they are requested again on reopen or retry.
+   */
+  const [readiness, setReadiness] = useState<Record<string, ReadinessEntry>>({});
 
   const visible = applyJournalFilters(matches, filters, preferences);
   const activeCount = activeFilterCount(filters);
@@ -50,6 +60,60 @@ export function JournalResults({ matches, preferences, articleType, nextHref }: 
           ? [...current, journalId]
           : current,
     );
+  };
+
+  /* Requests readiness only for journals that have no result yet (missing or failed), in one call. */
+  const requestReadiness = (journalIds: string[]) => {
+    const missing = journalIds.filter((id) => {
+      const entry = readiness[id];
+      return !entry || entry.status === "error";
+    });
+    if (missing.length === 0) return;
+
+    setReadiness((current) => {
+      const next = { ...current };
+      for (const id of missing) next[id] = { status: "loading" };
+      return next;
+    });
+
+    compareReadiness(manuscriptId, missing).then(
+      (items) => {
+        const byId = new Map<string, JournalReadiness>(
+          items.map((item) => [item.journal_id, toJournalReadiness(item)]),
+        );
+        setReadiness((current) => {
+          const next = { ...current };
+          for (const id of missing) {
+            const result = byId.get(id);
+            next[id] = result
+              ? { status: "ready", readiness: result }
+              : {
+                  status: "error",
+                  error: {
+                    title: "تعذّر حساب الجاهزية",
+                    message: "لم يُرجع الخادم نتيجة لهذه المجلة.",
+                    detail: null,
+                    retryable: true,
+                  },
+                };
+          }
+          return next;
+        });
+      },
+      (error: unknown) => {
+        const presentation = describeError(error);
+        setReadiness((current) => {
+          const next = { ...current };
+          for (const id of missing) next[id] = { status: "error", error: presentation };
+          return next;
+        });
+      },
+    );
+  };
+
+  const openComparison = () => {
+    setCompareOpen(true);
+    requestReadiness(compareIds);
   };
 
   return (
@@ -162,7 +226,7 @@ export function JournalResults({ matches, preferences, articleType, nextHref }: 
         {compareIds.length > 0 && (
           <button
             type="button"
-            onClick={() => setCompareOpen(true)}
+            onClick={openComparison}
             disabled={compareIds.length < MAX_COMPARE}
             className="h-12 rounded-[3px] border border-ink px-5 text-sm font-semibold hover:bg-paper-raised disabled:cursor-not-allowed disabled:border-rule-strong disabled:text-muted"
           >
@@ -192,6 +256,8 @@ export function JournalResults({ matches, preferences, articleType, nextHref }: 
       <CompareDialog
         open={compareOpen && compared.length === MAX_COMPARE}
         journals={compared}
+        readiness={readiness}
+        onRetryReadiness={() => requestReadiness(compareIds)}
         selectedId={selectedId}
         onClose={() => setCompareOpen(false)}
         onSelect={(journalId) => {

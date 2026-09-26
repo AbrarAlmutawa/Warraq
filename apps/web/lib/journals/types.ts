@@ -45,3 +45,17 @@ export type JournalMatch = {
   /** ISO date, e.g. "2026-09-18" */
   lastCheckedAt: string;
 };
+
+/*
+ * Readiness of the uploaded manuscript for one journal, exactly as POST /validate/compare
+ * reports it (ReadinessSummary). Displayed only — never recomputed on the frontend.
+ */
+export type JournalReadiness = {
+  journalId: string;
+  total: number;
+  passedCount: number;
+  failedCount: number;
+  reviewCount: number;
+  meetsHardRequirements: boolean;
+  isFullyReady: boolean;
+};

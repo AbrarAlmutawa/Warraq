@@ -1,5 +1,10 @@
-import type { ApiJournalMatch, ApiMatchPreferencesRequest, ApiParsedManuscript } from "@/lib/api-client";
-import type { JournalMatch, OpenAccessModel } from "@/lib/journals/types";
+import type {
+  ApiJournalMatch,
+  ApiJournalReadiness,
+  ApiMatchPreferencesRequest,
+  ApiParsedManuscript,
+} from "@/lib/api-client";
+import type { JournalMatch, JournalReadiness, OpenAccessModel } from "@/lib/journals/types";
 import type { ArticleType, JournalPreferences, ManuscriptUnderstanding } from "@/lib/preferences/types";
 
 /*
@@ -69,6 +74,21 @@ export function toJournalMatch(view: ApiJournalMatch): JournalMatch {
     extractionConfidence: view.extraction_confidence_level,
     needsHumanReview: view.needs_human_review,
     lastCheckedAt: toIsoDate(view.last_checked_at),
+  };
+}
+
+/* ───────── Readiness (POST /validate/compare → JournalReadiness) ───────── */
+
+/* The backend summary, field for field. Nothing is derived or recomputed here. */
+export function toJournalReadiness(item: ApiJournalReadiness): JournalReadiness {
+  return {
+    journalId: item.journal_id,
+    total: item.summary.total,
+    passedCount: item.summary.passed_count,
+    failedCount: item.summary.failed_count,
+    reviewCount: item.summary.review_count,
+    meetsHardRequirements: item.summary.meets_hard_requirements,
+    isFullyReady: item.summary.is_fully_ready,
   };
 }
 

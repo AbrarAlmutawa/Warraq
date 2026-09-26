@@ -27,6 +27,7 @@ type LoadState =
   | { status: "matching" }
   | {
       status: "ready";
+      manuscriptId: string;
       matches: JournalMatch[];
       preferences: JournalPreferences;
       articleType: ArticleType | null;
@@ -63,17 +64,18 @@ export function JournalsFlow({ nextHref }: JournalsFlowProps) {
         return;
       }
 
+      const manuscriptId = session.manuscriptId;
       const preferences = session.preferences;
       const articleType = session.articleType;
       apply({ status: "matching" });
 
-      matchJournals(session.manuscriptId, toApiMatchPreferences(preferences, articleType)).then(
+      matchJournals(manuscriptId, toApiMatchPreferences(preferences, articleType)).then(
         (views) => {
           if (cancelled) return;
           const matches = views.map(toJournalMatch);
           // The ranked ids of this successful match become the Switch Journal candidates.
           updateSession({ lastMatch: { journalIds: matches.map((match) => match.journalId) } });
-          apply({ status: "ready", matches, preferences, articleType });
+          apply({ status: "ready", manuscriptId, matches, preferences, articleType });
         },
         (error: unknown) => {
           // /match checks the manuscript first: a 404 means the stored id no longer exists.
@@ -182,6 +184,7 @@ export function JournalsFlow({ nextHref }: JournalsFlowProps) {
 
   return (
     <JournalResults
+      manuscriptId={load.manuscriptId}
       matches={load.matches}
       preferences={load.preferences}
       articleType={load.articleType}

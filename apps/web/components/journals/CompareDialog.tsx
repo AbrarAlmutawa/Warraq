@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { DialogFrame } from "@/components/journals/DialogFrame";
+import type { ErrorPresentation } from "@/lib/api-errors";
 import {
   OPEN_ACCESS_FULL,
   SCOPE_FIT,
@@ -10,11 +11,19 @@ import {
   formatSimilarityScore,
   indexLabels,
 } from "@/lib/journals/format";
-import type { JournalMatch } from "@/lib/journals/types";
+import type { JournalMatch, JournalReadiness } from "@/lib/journals/types";
+
+/* Readiness for one journal, as requested from POST /validate/compare. */
+export type ReadinessEntry =
+  | { status: "loading" }
+  | { status: "ready"; readiness: JournalReadiness }
+  | { status: "error"; error: ErrorPresentation };
 
 type CompareDialogProps = {
   open: boolean;
   journals: JournalMatch[];
+  readiness: Record<string, ReadinessEntry>;
+  onRetryReadiness: () => void;
   selectedId: string | null;
   onClose: () => void;
   onSelect: (journalId: string) => void;
@@ -67,7 +76,70 @@ const ROWS: CompareRow[] = [
   },
 ];
 
-export function CompareDialog({ open, journals, selectedId, onClose, onSelect }: CompareDialogProps) {
+/* Shows the backend's readiness summary as reported; nothing is recomputed here. */
+function ReadinessCell({
+  journal,
+  entry,
+  onRetry,
+}: {
+  journal: JournalMatch;
+  entry: ReadinessEntry | undefined;
+  onRetry: () => void;
+}) {
+  if (!entry || entry.status === "loading") {
+    return <span className="text-muted">نفحص المتطلبات…</span>;
+  }
+
+  if (entry.status === "error") {
+    return (
+      <span className="flex flex-col gap-1">
+        <span className="font-semibold text-terracotta-text">✕ تعذّر حساب الجاهزية</span>
+        <span className="text-xs leading-relaxed text-muted">{entry.error.message}</span>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="self-start text-[13px] underline underline-offset-4 hover:text-terracotta-text"
+        >
+          إعادة المحاولة
+        </button>
+      </span>
+    );
+  }
+
+  const { readiness } = entry;
+  return (
+    <span className="flex flex-col gap-1">
+      {readiness.isFullyReady ? (
+        <span className="font-semibold text-mint-text">✓ جاهز للتقديم وفق فحص وَرَّاق</span>
+      ) : (
+        <>
+          <span>
+            لم تُستوفَ بعد: <span className="font-semibold">{readiness.failedCount}</span>
+          </span>
+          {readiness.reviewCount > 0 && (
+            <span>
+              بحاجة إلى مراجعتك: <span className="font-semibold">{readiness.reviewCount}</span>
+            </span>
+          )}
+          <span className="text-muted">
+            مستوفاة: {readiness.passedCount} من {readiness.total}
+          </span>
+        </>
+      )}
+      {journal.sourceIsDemo && <span className="text-xs text-muted">متطلبات تجريبية</span>}
+    </span>
+  );
+}
+
+export function CompareDialog({
+  open,
+  journals,
+  readiness,
+  onRetryReadiness,
+  selectedId,
+  onClose,
+  onSelect,
+}: CompareDialogProps) {
   return (
     <DialogFrame
       open={open}
@@ -116,6 +188,30 @@ export function CompareDialog({ open, journals, selectedId, onClose, onSelect }:
                   ))}
                 </tr>
               ))}
+              <tr>
+                <th
+                  scope="row"
+                  className="border-b border-rule py-3 text-start align-top text-xs font-normal text-muted"
+                >
+                  الجاهزية الحالية
+                  <span className="mt-1 block text-[11px] leading-relaxed">
+                    فحص آلي للمخطوطة كما رُفعت على متطلبات كل مجلة
+                  </span>
+                </th>
+                {journals.map((journal) => (
+                  <td
+                    key={journal.journalId}
+                    aria-live="polite"
+                    className="border-b border-rule py-3 pe-4 align-top"
+                  >
+                    <ReadinessCell
+                      journal={journal}
+                      entry={readiness[journal.journalId]}
+                      onRetry={onRetryReadiness}
+                    />
+                  </td>
+                ))}
+              </tr>
               <tr>
                 <td />
                 {journals.map((journal) => (
