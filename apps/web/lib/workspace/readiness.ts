@@ -1,18 +1,9 @@
-import type { ReadinessSummary, RequirementResult } from "@/lib/workspace/types";
+import type { ReadinessSummary } from "@/lib/workspace/types";
 
-export function summarizeReadiness(results: RequirementResult[]): ReadinessSummary {
-  const hardErrorCount = results.filter((result) => result.status === "failed").length;
-  const reviewCount = results.filter((result) => result.status === "review").length;
-  const passedCount = results.filter((result) => result.status === "passed").length;
-  return {
-    hardErrorCount,
-    reviewCount,
-    passedCount,
-    total: results.length,
-    meetsHardRequirements: hardErrorCount === 0,
-    isFullyReady: hardErrorCount === 0 && reviewCount === 0,
-  };
-}
+/*
+ * Arabic wording for readiness. Text only: every number and the ready/not-ready decision come
+ * from the backend ReadinessSummary (POST /validate); nothing here computes readiness.
+ */
 
 export function hardErrorsPhrase(count: number): string {
   if (count === 1) return "متطلب إلزامي واحد";
@@ -41,11 +32,14 @@ export type ReadinessStatus = {
 };
 
 export function readinessStatus(summary: ReadinessSummary): ReadinessStatus {
+  if (summary.isFullyReady) {
+    return { tone: "ready", text: "جاهز للتقديم" };
+  }
   if (summary.hardErrorCount > 0) {
     return { tone: "blocked", text: `غير جاهز بعد - ${hardErrorsPhrase(summary.hardErrorCount)} بحاجة إلى معالجة` };
   }
   if (summary.reviewCount > 0) {
     return { tone: "review", text: `المتطلبات الإلزامية مستوفاة · ${reviewPhrase(summary.reviewCount)}` };
   }
-  return { tone: "ready", text: "جاهز للتقديم" };
+  return { tone: "blocked", text: "غير جاهز بعد" };
 }

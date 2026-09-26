@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
-import { JourneySteps } from "@/components/layout/JourneySteps";
-import { SiteHeader } from "@/components/layout/SiteHeader";
-import { ReadyView } from "@/components/ready/ReadyView";
-import { getWorkspaceJournal, resolveWorkspaceJournalId } from "@/lib/workspace/journals";
-import { buildReadyDemoState } from "@/lib/workspace/ready";
+import { ReadyFlow } from "@/components/ready/ReadyFlow";
 
 export const metadata: Metadata = {
-  title: "جاهز للتقديم - وَرَّاق",
+  title: "جاهزية التقديم - وَرَّاق",
 };
 
 type ReadyPageProps = {
@@ -15,14 +11,12 @@ type ReadyPageProps = {
 
 export default async function ReadyPage({ searchParams }: ReadyPageProps) {
   const params = await searchParams;
-  const journalId = resolveWorkspaceJournalId(params.journal);
-  const journal = getWorkspaceJournal(journalId);
-  const state = buildReadyDemoState(journalId);
+  const raw = Array.isArray(params.journal) ? params.journal[0] : params.journal;
+  const journalId = raw?.trim() || null;
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <SiteHeader aside={<JourneySteps current={state.summary.isFullyReady ? "ready" : "preparation"} />} />
-      <ReadyView journal={journal} state={state} />
+      <ReadyFlow key={journalId ?? "no-journal"} journalId={journalId} />
     </div>
   );
 }
