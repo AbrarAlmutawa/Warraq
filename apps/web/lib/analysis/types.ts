@@ -5,13 +5,3 @@ export type AnalysisStage = {
   label: string;
   result: string;
 };
-
-export type ManuscriptFileSummary = {
-  fileName: string;
-  fileSizeLabel: string;
-};
-
-export type AnalysisProgressState = {
-  statuses: AnalysisStageStatus[];
-  isComplete: boolean;
-};
