@@ -1,14 +1,12 @@
-import Link from "next/link";
 import { JourneyTimeline } from "@/components/layout/JourneyTimeline";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { DemoManuscriptButton } from "@/components/upload/DemoManuscriptButton";
 import { UploadDropzone } from "@/components/upload/UploadDropzone";
 
 export default function HomePage() {
   return (
     <div className="flex min-h-dvh flex-col">
-      <SiteHeader
-        
-      />
+      <SiteHeader />
 
       <main className="flex flex-1 flex-col gap-14 px-6 pt-12 lg:flex-row lg:gap-[88px] lg:px-[72px] lg:pt-[72px]">
         {/* Introduction with editorial margin */}
@@ -40,15 +38,9 @@ export default function HomePage() {
 
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-body">
             <p>
-              ليس لديك بحث جاهز الآن؟{" "}
-              <Link
-                href="/analysis"
-                className="font-bold underline underline-offset-4 hover:text-terracotta-text"
-              >
-                جرّب ببحث تجريبي
-              </Link>
+              ليس لديك بحث جاهز الآن؟ <DemoManuscriptButton />
             </p>
-            <p className="text-[12.5px] text-muted">البحث بالإنجليزية · الواجهة بالعربية</p>
+            <p className="text-[12.5px] text-muted"> </p>
           </div>
         </section>
       </main>

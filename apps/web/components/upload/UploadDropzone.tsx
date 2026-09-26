@@ -3,6 +3,7 @@
 import { useRef, useState, type ChangeEvent, type DragEvent, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { BookmarkMark } from "@/components/brand/BookmarkMark";
+import { startManuscriptUpload } from "@/lib/manuscript-upload";
 import {
   ACCEPT_ATTRIBUTE,
   MAX_UPLOAD_MB,
@@ -86,6 +87,14 @@ export function UploadDropzone() {
     setState({ status: "idle" });
   };
 
+  const onContinue = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (state.status !== "selected") return;
+    // The real upload starts now; /analysis shows it while it runs, then its real result.
+    startManuscriptUpload(state.file, { isDemoManuscript: false });
+    router.push("/analysis");
+  };
+
   const showSelected = state.status === "selected" && !isDragging;
 
   const zoneTone = isDragging
@@ -140,10 +149,7 @@ export function UploadDropzone() {
             <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  router.push("/analysis");
-                }}
+                onClick={onContinue}
                 className="h-11 rounded-[3px] bg-ink px-6 text-[15px] font-bold text-paper hover:bg-ink/90"
               >
                 متابعة
@@ -177,7 +183,7 @@ export function UploadDropzone() {
               أو اختر ملفًا من جهازك
             </button>
             <span dir="ltr" className="mt-2 font-latin text-[13px] text-muted">
-              PDF · DOCX · LaTeX (.tex / .zip)
+              DOCX (Microsoft Word)
             </span>
             <span className="text-[12.5px] text-muted">حتى {MAX_UPLOAD_MB} ميغابايت</span>
             {state.status === "error" && (

@@ -1,4 +1,10 @@
-export const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".tex", ".zip"] as const;
+/*
+ * Client-side checks before upload. The backend (POST /manuscripts/upload) accepts DOCX only
+ * for now (docs/contracts.md, decision 2), so the UI accepts and advertises DOCX only.
+ * The backend repeats these checks and remains the authority.
+ */
+
+export const ACCEPTED_EXTENSIONS = [".docx"] as const;
 export const ACCEPT_ATTRIBUTE = ACCEPTED_EXTENSIONS.join(",");
 export const MAX_UPLOAD_MB = 25;
 export const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
@@ -18,7 +24,7 @@ export function validateManuscriptFile(file: File): FileValidation {
   if (!isAcceptedExtension(getFileExtension(file.name))) {
     return {
       ok: false,
-      message: "صيغة الملف غير مدعومة. ارفع ملف PDF أو DOCX أو LaTeX بامتداد tex أو zip.",
+      message: "صيغة الملف غير مدعومة حاليًا. ارفع مستند Word بصيغة DOCX.",
     };
   }
   if (file.size === 0) {
@@ -38,16 +44,5 @@ export function formatFileSize(bytes: number): string {
 }
 
 export function fileTypeLabel(fileName: string): string {
-  switch (getFileExtension(fileName)) {
-    case ".pdf":
-      return "PDF";
-    case ".docx":
-      return "DOCX";
-    case ".tex":
-      return "LaTeX";
-    case ".zip":
-      return "LaTeX (ZIP)";
-    default:
-      return "";
-  }
+  return getFileExtension(fileName) === ".docx" ? "DOCX" : "";
 }
