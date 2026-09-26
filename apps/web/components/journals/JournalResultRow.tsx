@@ -5,6 +5,7 @@ import {
   formatApc,
   formatCheckedDate,
   formatReviewDays,
+  formatSimilarityScore,
   indexLabels,
 } from "@/lib/journals/format";
 import { isFastEnough, isOpenAccessAvailable, isWithinBudget } from "@/lib/journals/filters";
@@ -92,7 +93,21 @@ export function JournalResultRow({
           <FitMarks level={fit.level} />
           <span className="text-[14.5px] font-bold">{fit.label}</span>
         </div>
-        <p className="text-[13.5px] leading-[1.75]">{match.scopeReason}</p>
+        <p className="text-[13.5px] leading-[1.75]">
+          درجة تشابه النطاق مع بحثك:{" "}
+          <span dir="ltr" className="font-latin font-semibold">
+            {formatSimilarityScore(match.similarityScore)}
+          </span>{" "}
+          من 1
+        </p>
+        {match.matchedTopics.length > 0 && (
+          <p className="text-[13px] leading-[1.75] text-body">
+            موضوعات مشتركة:{" "}
+            <span dir="ltr" className="font-latin">
+              {match.matchedTopics.join(", ")}
+            </span>
+          </p>
+        )}
         <p className="text-[12.5px] leading-relaxed text-muted">
           <span className="font-semibold text-ink">أبرز المتطلبات: </span>
           {match.requirementsSummary.map((requirement, index) => (

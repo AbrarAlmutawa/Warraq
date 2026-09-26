@@ -1,15 +1,21 @@
 import type { JournalMatch } from "@/lib/journals/types";
 
-/* Fictional demo journals — every value here is prototype data. */
+/*
+ * INTERIM — used only by the mock workspace (lib/workspace/journals.ts) until Phase 4
+ * replaces it with real backend data. The journals screen no longer uses this file after Step 3.2b.
+ * Fictional demo journals — every value here is prototype data.
+ * similarityScore / matchedTopics are deliberately 0 / empty: they are not invented.
+ */
 export const MOCK_JOURNAL_MATCHES: JournalMatch[] = [
   {
     journalId: "jaas",
     name: "Journal of Applied Agricultural Systems",
     shortName: "JAAS",
     publisher: "Demo Academic Press",
+    rank: 1,
     scopeFit: "strong",
-    scopeReason:
-      "نطاقها يغطي تطبيقات الرؤية الحاسوبية في الأنظمة الزراعية الميدانية، وتنشر أبحاثًا عن تشخيص أمراض النباتات من الصور، وهو محور بحثك.",
+    similarityScore: 0,
+    matchedTopics: [],
     apcUsd: 3200,
     openAccess: "hybrid",
     reviewDaysAvg: 120,
@@ -26,9 +32,10 @@ export const MOCK_JOURNAL_MATCHES: JournalMatch[] = [
     name: "Smart Farming & Vision Research",
     shortName: "SFVR",
     publisher: "Demo Research Publishing",
+    rank: 2,
     scopeFit: "strong",
-    scopeReason:
-      "تركّز على نماذج الرؤية الخفيفة وتشغيلها في الحقل، وهو جوهر مساهمة بحثك في النموذج خفيف الوزن.",
+    similarityScore: 0,
+    matchedTopics: [],
     apcUsd: 1450,
     openAccess: "full",
     reviewDaysAvg: 38,
@@ -45,9 +52,10 @@ export const MOCK_JOURNAL_MATCHES: JournalMatch[] = [
     name: "Computational Agriculture Review",
     shortName: "CAR",
     publisher: "Demo Science Group",
+    rank: 3,
     scopeFit: "good",
-    scopeReason:
-      "تغطي النماذج الحاسوبية في الزراعة عمومًا؛ بحثك ضمن نطاقها، لكن تركيزها على النمذجة والمحاكاة أكثر من الرؤية الحاسوبية.",
+    similarityScore: 0,
+    matchedTopics: [],
     apcUsd: 900,
     openAccess: "full",
     reviewDaysAvg: 55,
@@ -64,9 +72,10 @@ export const MOCK_JOURNAL_MATCHES: JournalMatch[] = [
     name: "Digital Agriculture Methods",
     shortName: "DAM",
     publisher: "Demo Scholarly Press",
+    rank: 4,
     scopeFit: "possible",
-    scopeReason:
-      "تنشر أوراقًا منهجية قصيرة في الزراعة الرقمية؛ الموضوع قريب، لكن طول بحثك (7,850 كلمة) يتجاوز الحد المعتاد لديها.",
+    similarityScore: 0,
+    matchedTopics: [],
     apcUsd: 0,
     openAccess: "subscription",
     reviewDaysAvg: 75,

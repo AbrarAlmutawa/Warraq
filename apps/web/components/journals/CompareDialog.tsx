@@ -7,6 +7,7 @@ import {
   SCOPE_FIT,
   formatApc,
   formatReviewDays,
+  formatSimilarityScore,
   indexLabels,
 } from "@/lib/journals/format";
 import type { JournalMatch } from "@/lib/journals/types";
@@ -30,7 +31,21 @@ const ROWS: CompareRow[] = [
     render: (journal) => (
       <>
         <span className="block font-semibold">{SCOPE_FIT[journal.scopeFit].label}</span>
-        <span className="mt-1 block leading-relaxed text-body">{journal.scopeReason}</span>
+        <span className="mt-1 block leading-relaxed text-body">
+          درجة تشابه النطاق مع بحثك:{" "}
+          <span dir="ltr" className="font-latin font-semibold">
+            {formatSimilarityScore(journal.similarityScore)}
+          </span>{" "}
+          من 1
+        </span>
+        {journal.matchedTopics.length > 0 && (
+          <span className="mt-1 block leading-relaxed text-body">
+            موضوعات مشتركة:{" "}
+            <span dir="ltr" className="font-latin">
+              {journal.matchedTopics.join(", ")}
+            </span>
+          </span>
+        )}
       </>
     ),
   },

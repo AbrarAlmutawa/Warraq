@@ -1,4 +1,5 @@
-import type { ApiMatchPreferencesRequest, ApiParsedManuscript } from "@/lib/api-client";
+import type { ApiJournalMatch, ApiMatchPreferencesRequest, ApiParsedManuscript } from "@/lib/api-client";
+import type { JournalMatch, OpenAccessModel } from "@/lib/journals/types";
 import type { ArticleType, JournalPreferences, ManuscriptUnderstanding } from "@/lib/preferences/types";
 
 /*
@@ -26,6 +27,48 @@ export function toManuscriptUnderstanding(parsed: ApiParsedManuscript): Manuscri
     referenceCount: parsed.reference_count,
     figureCount: parsed.figure_count,
     tableCount: parsed.table_count,
+  };
+}
+
+/* ───────── Journals (JournalMatchView → JournalMatch) ───────── */
+
+const ACCESS_MODEL_FROM_API: Record<ApiJournalMatch["access_model"], OpenAccessModel> = {
+  open_access: "full",
+  hybrid: "hybrid",
+  subscription: "subscription",
+  unknown: "unknown",
+};
+
+/* "2026-09-25T12:54:55.123456" → "2026-09-25" (the UI shows dates only). */
+function toIsoDate(value: string): string {
+  return value.slice(0, 10);
+}
+
+/*
+ * Missing journal facts stay null / empty: nothing is filled in on the frontend.
+ * `reasons` (English free text) is intentionally not used; the UI explains scope fit from the
+ * structured similarity_score and matched_topics instead.
+ */
+export function toJournalMatch(view: ApiJournalMatch): JournalMatch {
+  return {
+    journalId: view.journal_id,
+    name: view.name,
+    shortName: view.short_name ?? null,
+    publisher: view.publisher,
+    rank: view.rank,
+    scopeFit: view.scope_fit,
+    similarityScore: view.similarity_score,
+    matchedTopics: [...(view.matched_topics ?? [])],
+    apcUsd: view.apc_usd ?? null,
+    openAccess: ACCESS_MODEL_FROM_API[view.access_model] ?? "unknown",
+    reviewDaysAvg: view.review_days_avg ?? null,
+    indexes: [...(view.indexes ?? [])],
+    requirementsSummary: [...(view.requirements_summary ?? [])],
+    sourceUrl: view.source_url,
+    sourceIsDemo: view.is_demo === true,
+    extractionConfidence: view.extraction_confidence_level,
+    needsHumanReview: view.needs_human_review,
+    lastCheckedAt: toIsoDate(view.last_checked_at),
   };
 }
 
