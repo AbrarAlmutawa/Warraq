@@ -2,9 +2,9 @@ import type { ExtractionConfidence } from "@/lib/journals/types";
 
 /*
  * The first part of this file (manuscript, editor document, journal rules, validation,
- * suggestions) describes the MOCK workspace and is kept only while the mock /ready screen and
- * SwitchJournalDialog still compile against it (retired in Phases 5 and 7). The real workspace
- * types are at the end ("Real workspace").
+ * suggestions) describes the MOCK workspace and is kept only while the mock /ready screen
+ * still compiles against it (retired in Phase 7). The real workspace types are at the end
+ * ("Real workspace").
  */
 
 /* ───────── Manuscript (parsed once) ───────── */
@@ -236,7 +236,7 @@ export type PanelTab = "requirements" | "suggestions";
 
 /* ───────── Real workspace (backend data) ───────── */
 
-/* An action the backend offers for a failed rule (SuggestedFix). Carried now, used in Phase 6. */
+/* An action the backend offers for a failed rule (SuggestedFix). */
 export type WorkspaceSuggestedFix = {
   kind: string;
   label: string;
@@ -283,4 +283,62 @@ export type BlockDocument = {
   /** Parsed-block id → the editor range of its line */
   blockRanges: ReadonlyMap<string, EditorRange>;
   sections: BlockSection[];
+};
+
+/*
+ * One AI suggestion from POST /suggestions (Suggestion), via lib/api-adapters.ts.
+ * A PROPOSAL only: accepting records the researcher's decision on the backend and never
+ * changes the manuscript, the checklist or readiness. Text fields are the backend's own.
+ */
+export type WorkspaceSuggestion = {
+  /** Backend suggestion_id (scoped to manuscript + journal) */
+  id: string;
+  /** scope_fit | shorten_title | shorten_abstract | draft_highlights | draft_statement | null */
+  kind: string | null;
+  /** The checklist rule this helps with, e.g. "title_length"; null for scope fit */
+  ruleId: string | null;
+  field: string;
+  backendLabel: string;
+  title: string;
+  rationale: string;
+  /** Parsed block it refers to, if any (navigation only) */
+  blockId: string | null;
+  before: string | null;
+  after: string | null;
+  status: SuggestionStatus;
+};
+
+/* A POST /suggestions answer for one journal. */
+export type SuggestionsResult = {
+  status: "ok" | "stored" | "unavailable" | "error";
+  /** Backend message (English), e.g. why AI is unavailable */
+  message: string | null;
+  suggestions: WorkspaceSuggestion[];
+};
+
+/* One reference in a POST /citations/convert proposal. */
+export type ConvertedReferenceProposal = {
+  /** 1-based position in the manuscript's reference list */
+  index: number;
+  original: string;
+  converted: string;
+  inText: string | null;
+  missingFields: string[];
+  blockId: string | null;
+};
+
+/*
+ * A citation-conversion PROPOSAL (CitationConversion). Nothing is applied to the manuscript;
+ * the backend does not store it and records no decision about it.
+ */
+export type CitationProposal = {
+  /** ok | partial | unavailable | error */
+  status: string;
+  message: string | null;
+  fromStyle: string;
+  toStyle: string;
+  references: ConvertedReferenceProposal[];
+  /** True when the converted list was detected as the target style; null when not checked */
+  verified: boolean | null;
+  failedIndexes: number[];
 };

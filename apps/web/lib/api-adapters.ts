@@ -1,4 +1,5 @@
 import type {
+  ApiCitationConversion,
   ApiJournalMatch,
   ApiJournalReadiness,
   ApiJournalSummary,
@@ -6,6 +7,8 @@ import type {
   ApiParsedManuscript,
   ApiReadinessSummary,
   ApiRequirementResult,
+  ApiSuggestion,
+  ApiSuggestionsResponse,
 } from "@/lib/api-client";
 import type {
   JournalMatch,
@@ -14,7 +17,13 @@ import type {
   OpenAccessModel,
 } from "@/lib/journals/types";
 import type { ArticleType, JournalPreferences, ManuscriptUnderstanding } from "@/lib/preferences/types";
-import type { ReadinessSummary, WorkspaceRequirement } from "@/lib/workspace/types";
+import type {
+  CitationProposal,
+  ReadinessSummary,
+  SuggestionsResult,
+  WorkspaceRequirement,
+  WorkspaceSuggestion,
+} from "@/lib/workspace/types";
 
 /*
  * The single place where backend (snake_case) shapes and frontend (camelCase) shapes meet.
@@ -116,7 +125,7 @@ export function toJournalReadiness(item: ApiJournalReadiness): JournalReadiness 
 /*
  * One backend requirement check, unchanged in meaning: requirement / measured stay exactly as
  * the backend wrote them, block_ids are kept (de-duplicated) for highlighting, and suggested_fix
- * is carried for later phases. Arabic presentation lives in lib/workspace/requirement-labels.ts.
+ * is carried for the checklist actions. Arabic presentation lives in lib/workspace/requirement-labels.ts.
  */
 export function toWorkspaceRequirement(result: ApiRequirementResult): WorkspaceRequirement {
   const fix = result.suggested_fix ?? null;
@@ -148,6 +157,56 @@ export function toWorkspaceReadiness(summary: ApiReadinessSummary): ReadinessSum
     total: summary.total,
     meetsHardRequirements: summary.meets_hard_requirements,
     isFullyReady: summary.is_fully_ready,
+  };
+}
+
+/* ───────── Suggestions (POST /suggestions, PATCH /suggestions/{id}) ───────── */
+
+/* One AI suggestion as the backend returned it. Missing text stays null. */
+export function toWorkspaceSuggestion(suggestion: ApiSuggestion): WorkspaceSuggestion {
+  return {
+    id: suggestion.suggestion_id,
+    kind: suggestion.kind ?? null,
+    ruleId: suggestion.rule_id ?? null,
+    field: suggestion.field,
+    backendLabel: suggestion.label,
+    title: suggestion.title,
+    rationale: suggestion.rationale,
+    blockId: suggestion.block_id ?? null,
+    before: suggestion.before ?? null,
+    after: suggestion.after ?? null,
+    status: suggestion.status,
+  };
+}
+
+/* A whole POST /suggestions answer: status and message are the backend's, unchanged. */
+export function toSuggestionsResult(response: ApiSuggestionsResponse): SuggestionsResult {
+  return {
+    status: response.status,
+    message: response.message ?? null,
+    suggestions: (response.suggestions ?? []).map(toWorkspaceSuggestion),
+  };
+}
+
+/* ───────── Citation conversion (POST /citations/convert) ───────── */
+
+/* A conversion proposal as the backend returned it; nothing is applied anywhere. */
+export function toCitationProposal(conversion: ApiCitationConversion): CitationProposal {
+  return {
+    status: conversion.status,
+    message: conversion.message ?? null,
+    fromStyle: conversion.from_style,
+    toStyle: conversion.to_style,
+    references: (conversion.references ?? []).map((reference) => ({
+      index: reference.original_index,
+      original: reference.original,
+      converted: reference.converted,
+      inText: reference.in_text ?? null,
+      missingFields: [...(reference.missing_fields ?? [])],
+      blockId: reference.block_id ?? null,
+    })),
+    verified: conversion.verified ?? null,
+    failedIndexes: [...(conversion.failed_indexes ?? [])],
   };
 }
 

@@ -5,11 +5,22 @@ type RequirementCardProps = {
   requirement: WorkspaceRequirement;
   selected: boolean;
   canGoToText: boolean;
+  /* Arabic label of the supported backend action for this rule; null = no button. */
+  actionLabel: string | null;
   onGoToText: () => void;
   onShowSource: () => void;
+  onAction: () => void;
 };
 
-export function RequirementCard({ requirement, selected, canGoToText, onGoToText, onShowSource }: RequirementCardProps) {
+export function RequirementCard({
+  requirement,
+  selected,
+  canGoToText,
+  actionLabel,
+  onGoToText,
+  onShowSource,
+  onAction,
+}: RequirementCardProps) {
   const isReview = requirement.status === "review";
   const label = requirementLabel(requirement);
   const message = requirementMessage(requirement);
@@ -94,6 +105,16 @@ export function RequirementCard({ requirement, selected, canGoToText, onGoToText
         >
           عرض المصدر
         </button>
+        <span className="flex-1" />
+        {actionLabel && (
+          <button
+            type="button"
+            onClick={onAction}
+            className="h-9 rounded-[3px] bg-ink px-3 text-[13px] font-semibold text-paper hover:bg-ink/90"
+          >
+            {actionLabel}
+          </button>
+        )}
       </div>
     </article>
   );

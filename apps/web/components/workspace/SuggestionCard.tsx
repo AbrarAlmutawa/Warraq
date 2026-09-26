@@ -1,17 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import type { SuggestionStatus, WarraqSuggestion } from "@/lib/workspace/types";
+import type { PresentedText } from "@/lib/workspace/requirement-labels";
+import { suggestionLabel, suggestionTitle } from "@/lib/workspace/suggestion-labels";
+import type { SuggestionStatus, WorkspaceSuggestion } from "@/lib/workspace/types";
 
 type SuggestionCardProps = {
-  suggestion: WarraqSuggestion;
-  status: SuggestionStatus;
+  suggestion: WorkspaceSuggestion;
   selected: boolean;
   canGoToText: boolean;
+  /* A PATCH /suggestions/{id} request for this card is in flight. */
+  saving: boolean;
+  /* The last decision request failed (Arabic message); the status did not change. */
+  error: string | null;
   onGoToText: () => void;
-  onAccept: () => void;
-  onReject: () => void;
-  onUndo: () => void;
+  onDecide: (status: SuggestionStatus) => void;
 };
 
 function ShaddaIcon() {
@@ -30,18 +33,39 @@ function ShaddaIcon() {
   );
 }
 
+function Segments({ parts }: { parts: PresentedText[] }) {
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.latin ? (
+          <span key={index} dir="ltr" className="font-latin">
+            {part.text}
+          </span>
+        ) : (
+          <span key={index}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+/*
+ * A backend AI suggestion. A proposal only: accepting or rejecting records the researcher's
+ * decision on the backend and never edits the manuscript or changes readiness.
+ */
 export function SuggestionCard({
   suggestion,
-  status,
   selected,
   canGoToText,
+  saving,
+  error,
   onGoToText,
-  onAccept,
-  onReject,
-  onUndo,
+  onDecide,
 }: SuggestionCardProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const previewId = `suggestion-preview-${suggestion.id}`;
+  const label = suggestionLabel(suggestion);
+  const hasPreview = Boolean(suggestion.before || suggestion.after);
 
   return (
     <article
@@ -55,58 +79,72 @@ export function SuggestionCard({
           <ShaddaIcon />
           اقتراح من وَرَّاق
         </span>
-        <span className="text-xs text-muted">{suggestion.label}</span>
+        <span className="text-xs text-muted">
+          <Segments parts={[label]} />
+        </span>
         {selected && <span className="sr-only">(البند المحدد)</span>}
       </div>
 
-      <p className="mt-2 text-[14px] leading-relaxed font-semibold">{suggestion.title}</p>
+      <p className="mt-2 text-[14px] leading-relaxed font-semibold">
+        <Segments parts={suggestionTitle(suggestion)} />
+      </p>
       <p className="mt-1 text-[12.5px] leading-relaxed text-body">
         <span className="font-bold">لماذا؟ </span>
-        {suggestion.rationale}
+        <span dir="ltr" className="font-latin">
+          {suggestion.rationale}
+        </span>
       </p>
 
-      {status === "pending" && (
+      {suggestion.status === "pending" && (
         <>
-          {previewOpen && (
+          {previewOpen && hasPreview && (
             <div id={previewId} className="mt-3 flex flex-col gap-2 border border-rule bg-paper p-3 text-[13px]">
-              <div>
-                <p className="text-[11px] font-bold text-muted">قبل</p>
-                <p dir="ltr" className="font-latin leading-relaxed text-muted line-through">
-                  {suggestion.before}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] font-bold text-olive-text">بعد</p>
-                <p
-                  dir="ltr"
-                  className="font-latin leading-relaxed underline decoration-olive decoration-dotted decoration-2 underline-offset-4"
-                >
-                  {suggestion.after}
-                </p>
-              </div>
+              {suggestion.before && (
+                <div>
+                  <p className="text-[11px] font-bold text-muted">قبل</p>
+                  <p dir="ltr" className="font-latin leading-relaxed whitespace-pre-line text-muted line-through">
+                    {suggestion.before}
+                  </p>
+                </div>
+              )}
+              {suggestion.after && (
+                <div>
+                  <p className="text-[11px] font-bold text-olive-text">{suggestion.before ? "بعد" : "النص المقترح"}</p>
+                  <p
+                    dir="ltr"
+                    className="font-latin leading-relaxed whitespace-pre-line underline decoration-olive decoration-dotted decoration-2 underline-offset-4"
+                  >
+                    {suggestion.after}
+                  </p>
+                </div>
+              )}
             </div>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
+            {hasPreview && (
+              <button
+                type="button"
+                onClick={() => setPreviewOpen((open) => !open)}
+                aria-expanded={previewOpen}
+                aria-controls={previewId}
+                className="h-9 rounded-[3px] border border-rule-strong px-3 text-[13px] hover:border-ink"
+              >
+                {previewOpen ? "إخفاء المعاينة" : "معاينة"}
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setPreviewOpen((open) => !open)}
-              aria-expanded={previewOpen}
-              aria-controls={previewId}
-              className="h-9 rounded-[3px] border border-rule-strong px-3 text-[13px] hover:border-ink"
-            >
-              {previewOpen ? "إخفاء المعاينة" : "معاينة"}
-            </button>
-            <button
-              type="button"
-              onClick={onAccept}
-              className="h-9 rounded-[3px] bg-ink px-4 text-[13px] font-semibold text-paper hover:bg-ink/90"
+              onClick={() => onDecide("accepted")}
+              disabled={saving}
+              className="h-9 rounded-[3px] bg-ink px-4 text-[13px] font-semibold text-paper hover:bg-ink/90 disabled:cursor-wait disabled:opacity-60"
             >
               قبول
             </button>
             <button
               type="button"
-              onClick={onReject}
-              className="h-9 rounded-[3px] border border-rule-strong px-3 text-[13px] hover:border-ink"
+              onClick={() => onDecide("rejected")}
+              disabled={saving}
+              className="h-9 rounded-[3px] border border-rule-strong px-3 text-[13px] hover:border-ink disabled:cursor-wait disabled:opacity-60"
             >
               رفض
             </button>
@@ -124,18 +162,36 @@ export function SuggestionCard({
         </>
       )}
 
-      {status !== "pending" && (
+      {suggestion.status !== "pending" && (
         <div className="mt-3 flex items-center gap-3 text-[13px]">
-          {status === "accepted" ? (
-            <span className="font-semibold text-mint-text">✓ قُبل - عُدّل النص في المخطوطة</span>
+          {suggestion.status === "accepted" ? (
+            <span className="leading-relaxed font-semibold text-mint-text">
+              ✓ قبلتَ هذا الاقتراح — لم يُعدَّل البحث. طبّقه في ملف Word ثم ارفع النسخة المعدّلة لإعادة الفحص.
+            </span>
           ) : (
-            <span className="text-body">رُفض - بقي النص كما هو</span>
+            <span className="text-body">رفضتَ هذا الاقتراح.</span>
           )}
           <span className="flex-1" />
-          <button type="button" onClick={onUndo} className="h-9 px-1 underline underline-offset-4 hover:text-terracotta-text">
+          <button
+            type="button"
+            onClick={() => onDecide("pending")}
+            disabled={saving}
+            className="h-9 shrink-0 px-1 underline underline-offset-4 hover:text-terracotta-text disabled:cursor-wait disabled:opacity-60"
+          >
             تراجع
           </button>
         </div>
+      )}
+
+      {saving && (
+        <p role="status" className="mt-2 text-xs text-muted">
+          نحفظ قرارك…
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="mt-2 text-xs font-semibold text-terracotta-text">
+          ✕ {error}
+        </p>
       )}
     </article>
   );

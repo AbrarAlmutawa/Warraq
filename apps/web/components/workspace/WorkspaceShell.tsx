@@ -2,7 +2,15 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { RequirementsPanel } from "@/components/workspace/RequirementsPanel";
+import {
+  CitationConversionDialog,
+  type ConversionEntry,
+} from "@/components/workspace/CitationConversionDialog";
+import {
+  RequirementsPanel,
+  type DecisionState,
+  type SuggestionsState,
+} from "@/components/workspace/RequirementsPanel";
 import { SectionNavigator } from "@/components/workspace/SectionNavigator";
 import {
   SwitchJournalDialog,
@@ -12,8 +20,20 @@ import {
 import { WorkspaceHeader } from "@/components/workspace/WorkspaceHeader";
 import { WorkspaceSourceDialog } from "@/components/workspace/WorkspaceSourceDialog";
 import { WorkspaceToast } from "@/components/workspace/WorkspaceToast";
-import { toWorkspaceReadiness, toWorkspaceRequirement } from "@/lib/api-adapters";
-import { compareReadiness, validateManuscript } from "@/lib/api-client";
+import {
+  toCitationProposal,
+  toSuggestionsResult,
+  toWorkspaceReadiness,
+  toWorkspaceRequirement,
+  toWorkspaceSuggestion,
+} from "@/lib/api-adapters";
+import {
+  compareReadiness,
+  convertCitations,
+  decideSuggestion,
+  getSuggestions,
+  validateManuscript,
+} from "@/lib/api-client";
 import { describeError, type ErrorPresentation } from "@/lib/api-errors";
 import type { JournalSummary } from "@/lib/journals/types";
 import { readSession } from "@/lib/session";
@@ -23,8 +43,11 @@ import type {
   BlockDocument,
   BlockSection,
   EditorRange,
+  PanelTab,
   SelectedItem,
+  SuggestionStatus,
   WorkspaceRequirement,
+  WorkspaceSuggestion,
 } from "@/lib/workspace/types";
 
 const ManuscriptEditor = dynamic(
@@ -49,6 +72,8 @@ const MISSING_RESULT: ErrorPresentation = {
   detail: null,
   retryable: true,
 };
+
+const IDLE_SUGGESTIONS: SuggestionsState = { status: "idle" };
 
 export type WorkspaceStats = {
   wordCount: number;
@@ -85,6 +110,8 @@ function displayName(journal: JournalSummary | undefined): string {
  * Everything shown comes from the backend: the parsed blocks (editor text, parsed once), and
  * POST /validate per journal (checklist, highlights, readiness summary). Switching journals only
  * re-validates the same manuscript_id; confirm and undo reuse results already fetched.
+ * Suggestions and citation conversions are proposals: they never feed the checklist, the
+ * editor, the decorations or readiness.
  */
 export function WorkspaceShell({
   manuscriptId,
@@ -106,6 +133,15 @@ export function WorkspaceShell({
   const [switchSession, setSwitchSession] = useState(0);
   const [toast, setToast] = useState<ToastState | null>(null);
 
+  const [tab, setTab] = useState<PanelTab>("requirements");
+  /* POST /suggestions per journal id (lazy; unavailable answers are kept, errors are retried). */
+  const [suggestionsByJournal, setSuggestionsByJournal] = useState<Record<string, SuggestionsState>>({});
+  /* PATCH /suggestions/{id} progress per suggestion id. */
+  const [decisions, setDecisions] = useState<Record<string, DecisionState>>({});
+  /* POST /citations/convert per journal id (ok/partial kept; unavailable/error asked again on reopen). */
+  const [conversions, setConversions] = useState<Record<string, ConversionEntry>>({});
+  const [conversionOpen, setConversionOpen] = useState(false);
+
   const [selected, setSelected] = useState<SelectedItem | null>(null);
   const [revealRange, setRevealRange] = useState<EditorRange | null>(null);
   const [revealNonce, setRevealNonce] = useState(0);
@@ -113,8 +149,9 @@ export function WorkspaceShell({
 
   useEffect(() => {
     if (!selected) return;
-    document.getElementById(`req-card-${selected.id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [selected]);
+    const prefix = selected.type === "requirement" ? "req" : "sug";
+    document.getElementById(`${prefix}-card-${selected.id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selected, tab]);
 
   useEffect(() => {
     if (!toast) return;
@@ -130,6 +167,7 @@ export function WorkspaceShell({
   const requirements = activeReport.requirements;
   const summary = activeReport.summary;
 
+  // Decorations depend only on the backend checklist and the selection — never on suggestions.
   const decorations = useMemo(
     () => buildRequirementDecorations(manuscriptDocument, requirements, selected),
     [manuscriptDocument, requirements, selected],
@@ -141,6 +179,10 @@ export function WorkspaceShell({
   };
 
   const sourceRequirement = requirements.find((requirement) => requirement.ruleId === sourceRuleId) ?? null;
+  const activeSuggestions = has(suggestionsByJournal, activeJournalId)
+    ? suggestionsByJournal[activeJournalId]
+    : IDLE_SUGGESTIONS;
+  const activeConversion = has(conversions, activeJournalId) ? conversions[activeJournalId] : undefined;
 
   // ── Editor navigation
   const reveal = (range: EditorRange) => {
@@ -159,6 +201,112 @@ export function WorkspaceShell({
 
   const goToSection = (section: BlockSection) =>
     reveal({ startLineNumber: section.line, startColumn: 1, endLineNumber: section.line, endColumn: 1 });
+
+  const canGoToSuggestion = (suggestion: WorkspaceSuggestion) =>
+    suggestion.blockId !== null && manuscriptDocument.blockRanges.has(suggestion.blockId);
+
+  const goToSuggestion = (suggestion: WorkspaceSuggestion) => {
+    setSelected({ type: "suggestion", id: suggestion.id });
+    const range = suggestion.blockId ? manuscriptDocument.blockRanges.get(suggestion.blockId) : undefined;
+    if (range) reveal(range);
+  };
+
+  // ── Suggestions (proposals; decisions are recorded on the backend only)
+  const loadSuggestions = (journalId: string, focusRuleId?: string) => {
+    const current = has(suggestionsByJournal, journalId) ? suggestionsByJournal[journalId] : undefined;
+    const answered = current?.status === "ready" && current.result.status !== "error";
+    if (current?.status === "loading" || answered) return;
+
+    setSuggestionsByJournal((state) => ({ ...state, [journalId]: { status: "loading" } }));
+    getSuggestions(manuscriptId, journalId).then(
+      (response) => {
+        const result = toSuggestionsResult(response);
+        setSuggestionsByJournal((state) => ({ ...state, [journalId]: { status: "ready", result } }));
+        if (focusRuleId) {
+          const match = result.suggestions.find((suggestion) => suggestion.ruleId === focusRuleId);
+          if (match) setSelected({ type: "suggestion", id: match.id });
+        }
+      },
+      (error: unknown) => {
+        setSuggestionsByJournal((state) => ({ ...state, [journalId]: { status: "failed", error: describeError(error) } }));
+      },
+    );
+  };
+
+  const changeTab = (next: PanelTab) => {
+    setTab(next);
+    if (next === "suggestions") loadSuggestions(activeJournalId);
+  };
+
+  const recordDecision = (suggestion: WorkspaceSuggestion, status: SuggestionStatus) => {
+    if (has(decisions, suggestion.id) && decisions[suggestion.id].saving) return;
+    setDecisions((state) => ({ ...state, [suggestion.id]: { saving: true, error: null } }));
+
+    decideSuggestion(suggestion.id, status).then(
+      (updated) => {
+        const next = toWorkspaceSuggestion(updated);
+        // Only the suggestion itself changes: the status the backend returned.
+        setSuggestionsByJournal((state) => {
+          const copy: Record<string, SuggestionsState> = {};
+          for (const [journalId, entry] of Object.entries(state)) {
+            copy[journalId] =
+              entry.status === "ready"
+                ? {
+                    status: "ready",
+                    result: {
+                      ...entry.result,
+                      suggestions: entry.result.suggestions.map((item) => (item.id === next.id ? next : item)),
+                    },
+                  }
+                : entry;
+          }
+          return copy;
+        });
+        setDecisions((state) => ({ ...state, [suggestion.id]: { saving: false, error: null } }));
+      },
+      (error: unknown) => {
+        setDecisions((state) => ({ ...state, [suggestion.id]: { saving: false, error: describeError(error).title } }));
+      },
+    );
+  };
+
+  // ── Citation conversion (read-only proposal)
+  const loadConversion = (journalId: string) => {
+    const current = has(conversions, journalId) ? conversions[journalId] : undefined;
+    if (current?.status === "loading" || (current?.status === "ready" && current.cacheable)) return;
+
+    setConversions((state) => ({ ...state, [journalId]: { status: "loading" } }));
+    convertCitations(manuscriptId, journalId).then(
+      (response) => {
+        const proposal = toCitationProposal(response);
+        const cacheable = proposal.status === "ok" || proposal.status === "partial";
+        setConversions((state) => ({ ...state, [journalId]: { status: "ready", proposal, cacheable } }));
+      },
+      (error: unknown) => {
+        setConversions((state) => ({ ...state, [journalId]: { status: "error", error: describeError(error) } }));
+      },
+    );
+  };
+
+  const runRequirementAction = (requirement: WorkspaceRequirement) => {
+    const fix = requirement.suggestedFix;
+    if (!fix) return;
+    setSelected({ type: "requirement", id: requirement.ruleId });
+
+    if (fix.kind === "convert_citations") {
+      setConversionOpen(true);
+      loadConversion(activeJournalId);
+      return;
+    }
+
+    setTab("suggestions");
+    const current = has(suggestionsByJournal, activeJournalId) ? suggestionsByJournal[activeJournalId] : undefined;
+    if (current?.status === "ready") {
+      const match = current.result.suggestions.find((suggestion) => suggestion.ruleId === requirement.ruleId);
+      if (match) setSelected({ type: "suggestion", id: match.id });
+    }
+    loadSuggestions(activeJournalId, requirement.ruleId);
+  };
 
   // ── Switch journal: backend requests (only for journals without a result yet)
   const requestOutlooks = (ids: string[]) => {
@@ -223,7 +371,7 @@ export function WorkspaceShell({
     );
   };
 
-  // ── Switch journal: dialog, confirm, undo (confirm and undo make no requests)
+  // ── Switch journal: dialog, confirm, undo (confirm and undo make no validation requests)
   const openSwitch = () => {
     // Candidates: the ranked ids of the last successful /match, minus the current journal,
     // limited to journals the backend still lists.
@@ -241,6 +389,15 @@ export function WorkspaceShell({
     window.history.replaceState(null, "", url.toString());
   };
 
+  const activateJournal = (journalId: string) => {
+    setActiveJournalId(journalId);
+    setSelected(null);
+    setSourceRuleId(null);
+    replaceJournalInUrl(journalId);
+    // The suggestions tab shows the new journal's own suggestions (cached after the first load).
+    if (tab === "suggestions") loadSuggestions(journalId);
+  };
+
   const confirmSwitch = (targetId: string) => {
     if (!has(reports, targetId)) return;
     const impact = compareReports(activeReport, reports[targetId]);
@@ -250,19 +407,13 @@ export function WorkspaceShell({
       text: `تم تغيير المجلة إلى ${displayName(journalsById.get(targetId))} وإعادة فحص المتطلبات.`,
       detail: `أصبح مستوفى: ${impact.becomesPassed.length} · يحتاج معالجة: ${impact.target.hardErrorCount}`,
     });
-    setActiveJournalId(targetId);
     setSwitchOpen(false);
-    setSelected(null);
-    setSourceRuleId(null);
-    replaceJournalInUrl(targetId);
+    activateJournal(targetId);
   };
 
   const undoSwitch = () => {
     if (!toast) return;
-    setActiveJournalId(toast.previousJournalId);
-    replaceJournalInUrl(toast.previousJournalId);
-    setSelected(null);
-    setSourceRuleId(null);
+    activateJournal(toast.previousJournalId);
     setToast(null);
   };
 
@@ -328,12 +479,21 @@ export function WorkspaceShell({
         </main>
 
         <RequirementsPanel
+          tab={tab}
+          onTabChange={changeTab}
           summary={summary}
           requirements={requirements}
           selected={selected}
           canGoToText={canGoToText}
           onGoToRequirement={goToRequirement}
           onShowSource={(requirement) => setSourceRuleId(requirement.ruleId)}
+          onRequirementAction={runRequirementAction}
+          suggestions={activeSuggestions}
+          decisions={decisions}
+          onRetrySuggestions={() => loadSuggestions(activeJournalId)}
+          canGoToSuggestion={canGoToSuggestion}
+          onGoToSuggestion={goToSuggestion}
+          onDecideSuggestion={recordDecision}
         />
       </div>
 
@@ -354,6 +514,13 @@ export function WorkspaceShell({
         requirement={sourceRequirement}
         journal={journal}
         onClose={() => setSourceRuleId(null)}
+      />
+
+      <CitationConversionDialog
+        open={conversionOpen}
+        entry={activeConversion}
+        onRetry={() => loadConversion(activeJournalId)}
+        onClose={() => setConversionOpen(false)}
       />
 
       <SwitchJournalDialog
