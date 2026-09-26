@@ -1,25 +1,61 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { DialogFrame } from "@/components/journals/DialogFrame";
+import type { ErrorPresentation } from "@/lib/api-errors";
 import { OPEN_ACCESS_SHORT, formatApc, formatReviewDays } from "@/lib/journals/format";
-import type { JournalMatch } from "@/lib/journals/types";
-import { diffValidation, type DiffItem } from "@/lib/workspace/diff";
-import { problemsPhrase, summarizeReadiness } from "@/lib/workspace/readiness";
-import type { CitationStyle, RequirementResult } from "@/lib/workspace/types";
+import type { JournalSummary } from "@/lib/journals/types";
+import { problemsPhrase } from "@/lib/workspace/readiness";
+import type { PresentedText } from "@/lib/workspace/requirement-labels";
+import {
+  compareReports,
+  requiredCitationStyle,
+  type ImpactItem,
+  type JournalReport,
+} from "@/lib/workspace/switch-impact";
+import type { ReadinessSummary } from "@/lib/workspace/types";
+
+/* Readiness outlook for one candidate (from /validate/compare, or a full report already fetched). */
+export type OutlookEntry =
+  | { status: "loading" }
+  | { status: "ready"; summary: ReadinessSummary }
+  | { status: "error"; error: ErrorPresentation };
+
+/* Full POST /validate result for one candidate, needed for the impact preview. */
+export type ReportEntry =
+  | { status: "loading" }
+  | { status: "ready"; report: JournalReport }
+  | { status: "error"; error: ErrorPresentation };
 
 type SwitchJournalDialogProps = {
   open: boolean;
-  currentJournal: JournalMatch;
-  currentResults: RequirementResult[];
-  candidates: JournalMatch[];
-  evaluateFor: (journalId: string) => RequirementResult[];
-  requiredStyleFor: (journalId: string) => CitationStyle;
+  currentJournal: JournalSummary;
+  currentReport: JournalReport;
+  candidates: JournalSummary[];
+  outlooks: Record<string, OutlookEntry>;
+  reports: Record<string, ReportEntry | undefined>;
+  onRetryOutlooks: () => void;
+  onRequestReport: (journalId: string) => void;
   onClose: () => void;
   onConfirm: (journalId: string) => void;
 };
 
-type GroupItem = { key: string; symbol: string; label: string; detail: string };
+function Segments({ parts }: { parts: PresentedText[] }) {
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.latin ? (
+          <span key={index} dir="ltr" className="font-latin">
+            {part.text}
+          </span>
+        ) : (
+          <span key={index}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
 
 function ImpactGroup({
   title,
@@ -28,7 +64,7 @@ function ImpactGroup({
 }: {
   title: string;
   tone: "pass" | "fail" | "review" | "neutral";
-  items: GroupItem[];
+  items: ImpactItem[];
 }) {
   if (items.length === 0) return null;
   const headingClass = {
@@ -48,8 +84,14 @@ function ImpactGroup({
             <span aria-hidden="true" className="me-1 font-bold">
               {item.symbol}
             </span>
-            <span className="font-semibold">{item.label}</span>
-            <span className="text-body"> — {item.detail}</span>
+            <span className="font-semibold">
+              <Segments parts={[item.label]} />
+            </span>
+            <span className="text-body">
+              {" — "}
+              <Segments parts={item.detail} />
+              {item.persists ? " (قائم حاليًا أيضًا)" : ""}
+            </span>
           </li>
         ))}
       </ul>
@@ -57,21 +99,33 @@ function ImpactGroup({
   );
 }
 
-const toItems = (items: DiffItem[]): GroupItem[] =>
-  items.map((item) => ({
-    key: item.id,
-    symbol: item.symbol,
-    label: item.label,
-    detail: item.persists ? `${item.detail} (قائم حاليًا أيضًا)` : item.detail,
-  }));
+function shortOf(journal: JournalSummary): string {
+  return journal.shortName ?? journal.name;
+}
+
+function OutlookText({ entry }: { entry: OutlookEntry | undefined }) {
+  if (!entry || entry.status === "loading") {
+    return <span className="text-[12.5px] text-muted">نفحص المتطلبات…</span>;
+  }
+  if (entry.status === "error") {
+    return <span className="text-[12.5px] font-semibold text-terracotta-text">✕ تعذّر حساب الجاهزية</span>;
+  }
+  return (
+    <span className="text-[12.5px] text-muted">
+      بعد التغيير: ✕ {entry.summary.hardErrorCount} · ◐ {entry.summary.reviewCount} · ✓ {entry.summary.passedCount}
+    </span>
+  );
+}
 
 export function SwitchJournalDialog({
   open,
   currentJournal,
-  currentResults,
+  currentReport,
   candidates,
-  evaluateFor,
-  requiredStyleFor,
+  outlooks,
+  reports,
+  onRetryOutlooks,
+  onRequestReport,
   onClose,
   onConfirm,
 }: SwitchJournalDialogProps) {
@@ -79,7 +133,18 @@ export function SwitchJournalDialog({
   const [targetId, setTargetId] = useState<string | null>(null);
 
   const target = candidates.find((candidate) => candidate.journalId === targetId) ?? null;
-  const impact = target ? diffValidation(currentResults, evaluateFor(target.journalId)) : null;
+  const targetEntry = target ? reports[target.journalId] : undefined;
+  const targetReport = targetEntry?.status === "ready" ? targetEntry.report : null;
+  const impact = targetReport ? compareReports(currentReport, targetReport) : null;
+  const hasOutlookErrors = candidates.some((candidate) => outlooks[candidate.journalId]?.status === "error");
+
+  const openPreview = () => {
+    if (!target) return;
+    setStep("preview");
+    onRequestReport(target.journalId);
+  };
+
+  const styleOf = (report: JournalReport) => requiredCitationStyle(report) ?? "غير محدد";
 
   return (
     <DialogFrame
@@ -96,17 +161,40 @@ export function SwitchJournalDialog({
           <span className={step === "preview" ? "font-bold text-ink" : ""}>٢ معاينة الأثر</span>
         </div>
         <p className="text-[13.5px] leading-relaxed text-body">
-          بحثك محلَّل مسبقًا. سنعيد فحص النص الحالي نفسه، بما فيه تعديلاتك المقبولة، على متطلبات المجلة الجديدة - دون إعادة
-          قراءة البحث.
+          بحثك محلَّل مسبقًا. نفحص النص نفسه الذي رفعته على متطلبات المجلة الجديدة، دون إعادة قراءة البحث أو تعديله.
         </p>
 
-        {step === "choose" && (
+        {step === "choose" && candidates.length === 0 && (
+          <>
+            <p className="text-[13.5px] leading-relaxed">
+              لا توجد مجلات أخرى في آخر اقتراح للمجلات. ارجع إلى المجلات المقترحة لاختيار مجلة أخرى أو لتعديل أولوياتك.
+            </p>
+            <div className="flex items-center gap-3 border-t border-rule pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-11 rounded-[3px] border border-rule-strong px-4 text-sm hover:border-ink"
+              >
+                إلغاء
+              </button>
+              <span className="flex-1" />
+              <Link
+                href="/journals"
+                className="inline-flex h-11 items-center rounded-[3px] bg-ink px-5 text-sm font-bold text-paper hover:bg-ink/90"
+              >
+                المجلات المقترحة
+              </Link>
+            </div>
+          </>
+        )}
+
+        {step === "choose" && candidates.length > 0 && (
           <>
             <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
               <legend className="mb-2 text-[13px] font-semibold">اختر من قائمتك المقترحة</legend>
               {candidates.map((candidate) => {
                 const checked = candidate.journalId === targetId;
-                const outlook = summarizeReadiness(evaluateFor(candidate.journalId));
+                const identity = [candidate.shortName, candidate.publisher].filter(Boolean).join(" · ");
                 return (
                   <label
                     key={candidate.journalId}
@@ -127,11 +215,18 @@ export function SwitchJournalDialog({
                       className={`size-4 shrink-0 rounded-full ${checked ? "border-[5px] border-ink" : "border-[1.5px] border-subtle"}`}
                     />
                     <span className="flex min-w-[240px] flex-1 flex-col">
-                      <span dir="ltr" className="text-start font-latin text-[15px] font-semibold">
-                        {candidate.name}
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span dir="ltr" className="text-start font-latin text-[15px] font-semibold">
+                          {candidate.name}
+                        </span>
+                        {candidate.sourceIsDemo && (
+                          <span className="rounded-full border border-rule-strong px-2 py-[1px] text-[11px] text-muted">
+                            تجريبية
+                          </span>
+                        )}
                       </span>
                       <span dir="ltr" className="text-start font-latin text-xs text-muted">
-                        {candidate.shortName} · {candidate.publisher}
+                        {identity}
                       </span>
                     </span>
                     <span className="flex gap-4 text-[12.5px]">
@@ -139,13 +234,23 @@ export function SwitchJournalDialog({
                       <span>{formatReviewDays(candidate.reviewDaysAvg)}</span>
                       <span>وصول مفتوح: {OPEN_ACCESS_SHORT[candidate.openAccess]}</span>
                     </span>
-                    <span className="text-[12.5px] text-muted">
-                      بعد التغيير: ✕ {outlook.hardErrorCount} · ◐ {outlook.reviewCount} · ✓ {outlook.passedCount}
-                    </span>
+                    <OutlookText entry={outlooks[candidate.journalId]} />
                   </label>
                 );
               })}
             </fieldset>
+            {hasOutlookErrors && (
+              <p className="text-[12.5px] text-body">
+                تعذّر حساب جاهزية بعض المجلات. يمكنك إعادة المحاولة، أو المتابعة إلى معاينة الأثر مباشرة.{" "}
+                <button
+                  type="button"
+                  onClick={onRetryOutlooks}
+                  className="underline underline-offset-4 hover:text-terracotta-text"
+                >
+                  إعادة المحاولة
+                </button>
+              </p>
+            )}
             <div className="flex items-center gap-3 border-t border-rule pt-4">
               <button
                 type="button"
@@ -158,7 +263,7 @@ export function SwitchJournalDialog({
               <button
                 type="button"
                 disabled={!target}
-                onClick={() => setStep("preview")}
+                onClick={openPreview}
                 className="h-11 rounded-[3px] bg-ink px-5 text-sm font-bold text-paper hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 معاينة الأثر
@@ -167,92 +272,106 @@ export function SwitchJournalDialog({
           </>
         )}
 
-        {step === "preview" && target && impact && (
+        {step === "preview" && target && (
           <>
             <p className="text-[15px]">
               من{" "}
               <span dir="ltr" className="font-latin font-bold">
-                {currentJournal.shortName}
+                {shortOf(currentJournal)}
               </span>{" "}
               <span aria-hidden="true" className="text-muted">
                 ←
               </span>{" "}
               إلى{" "}
               <span dir="ltr" className="font-latin font-bold">
-                {target.shortName}
+                {shortOf(target)}
               </span>
             </p>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] border-collapse text-[13.5px]">
-                <thead>
-                  <tr>
-                    <th scope="col" className="w-[190px] border-b border-ink pb-2 text-start font-normal">
-                      <span className="sr-only">البند</span>
-                    </th>
-                    <th scope="col" className="border-b border-ink pb-2 text-start text-xs font-semibold text-muted">
-                      الحالية ·{" "}
-                      <span dir="ltr" className="font-latin">
-                        {currentJournal.shortName}
-                      </span>
-                    </th>
-                    <th scope="col" className="border-b-2 border-terracotta pb-2 text-start text-xs font-semibold text-ink">
-                      الجديدة ·{" "}
-                      <span dir="ltr" className="font-latin">
-                        {target.shortName}
-                      </span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ["رسوم النشر", formatApc(currentJournal.apcUsd), formatApc(target.apcUsd)],
-                    ["مدة المراجعة", formatReviewDays(currentJournal.reviewDaysAvg), formatReviewDays(target.reviewDaysAvg)],
-                    ["الوصول المفتوح", OPEN_ACCESS_SHORT[currentJournal.openAccess], OPEN_ACCESS_SHORT[target.openAccess]],
-                    ["أسلوب الاستشهاد المطلوب", requiredStyleFor(currentJournal.journalId), requiredStyleFor(target.journalId)],
-                    ["متطلبات إلزامية غير مستوفاة", `✕ ${impact.current.hardErrorCount}`, `✕ ${impact.candidate.hardErrorCount}`],
-                    ["بنود تحتاج مراجعة", `◐ ${impact.current.reviewCount}`, `◐ ${impact.candidate.reviewCount}`],
-                    ["متطلبات مستوفاة", `✓ ${impact.current.passedCount}`, `✓ ${impact.candidate.passedCount}`],
-                  ].map(([label, from, to]) => (
-                    <tr key={label}>
-                      <th scope="row" className="border-b border-rule py-2 text-start text-xs font-normal text-muted">
-                        {label}
-                      </th>
-                      <td className="border-b border-rule py-2">{from}</td>
-                      <td className="border-b border-rule py-2 font-semibold">{to}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {(!targetEntry || targetEntry.status === "loading") && (
+              <p role="status" className="text-[13.5px] text-muted">
+                نفحص البحث على متطلبات هذه المجلة…
+              </p>
+            )}
 
-            <p className="text-[14px] font-semibold">
-              الآن: {problemsPhrase(impact.current.hardErrorCount)} · بعد التغيير: {problemsPhrase(impact.candidate.hardErrorCount)}
-            </p>
-
-            <div className="grid gap-5 md:grid-cols-2">
-              <div className="flex flex-col gap-4">
-                <ImpactGroup title="سيصبح مستوفى" tone="pass" items={toItems(impact.becomesPassed)} />
-                <ImpactGroup title="لم يعد مطلوبًا" tone="neutral" items={toItems(impact.noLongerRequired)} />
-                <ImpactGroup
-                  title="تغيّر الشرط"
-                  tone="neutral"
-                  items={impact.changedRules.map((rule) => ({
-                    key: rule.id,
-                    symbol: "↔",
-                    label: rule.label,
-                    detail: `${rule.from} ← ${rule.to}`,
-                  }))}
-                />
+            {targetEntry?.status === "error" && (
+              <div role="alert" className="flex flex-col gap-1 border border-terracotta/45 bg-terracotta-tint px-4 py-3">
+                <p className="text-[13.5px] font-semibold text-terracotta-text">✕ {targetEntry.error.title}</p>
+                <p className="text-[13px] leading-relaxed text-body">{targetEntry.error.message}</p>
+                {targetEntry.error.detail && (
+                  <p dir="ltr" className="font-latin text-[12px] break-words text-muted">
+                    {targetEntry.error.detail}
+                  </p>
+                )}
               </div>
-              <div className="flex flex-col gap-4">
-                <ImpactGroup title="سيحتاج معالجة" tone="fail" items={toItems(impact.needsAttention)} />
-                <ImpactGroup title="متطلب جديد" tone="neutral" items={toItems(impact.newRequirements)} />
-                <ImpactGroup title="بحاجة إلى مراجعة" tone="review" items={toItems(impact.newReviews)} />
-              </div>
-            </div>
+            )}
 
-            <p className="text-[12.5px] text-muted">و{impact.unchangedCount} متطلبات أخرى بلا تغيير في النتيجة.</p>
+            {targetReport && impact && (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[520px] border-collapse text-[13.5px]">
+                    <thead>
+                      <tr>
+                        <th scope="col" className="w-[190px] border-b border-ink pb-2 text-start font-normal">
+                          <span className="sr-only">البند</span>
+                        </th>
+                        <th scope="col" className="border-b border-ink pb-2 text-start text-xs font-semibold text-muted">
+                          الحالية ·{" "}
+                          <span dir="ltr" className="font-latin">
+                            {shortOf(currentJournal)}
+                          </span>
+                        </th>
+                        <th scope="col" className="border-b-2 border-terracotta pb-2 text-start text-xs font-semibold text-ink">
+                          الجديدة ·{" "}
+                          <span dir="ltr" className="font-latin">
+                            {shortOf(target)}
+                          </span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        ["رسوم النشر", formatApc(currentJournal.apcUsd), formatApc(target.apcUsd)],
+                        ["مدة المراجعة", formatReviewDays(currentJournal.reviewDaysAvg), formatReviewDays(target.reviewDaysAvg)],
+                        ["الوصول المفتوح", OPEN_ACCESS_SHORT[currentJournal.openAccess], OPEN_ACCESS_SHORT[target.openAccess]],
+                        ["أسلوب الاستشهاد المطلوب", styleOf(currentReport), styleOf(targetReport)],
+                        ["متطلبات إلزامية غير مستوفاة", `✕ ${impact.current.hardErrorCount}`, `✕ ${impact.target.hardErrorCount}`],
+                        ["بنود تحتاج مراجعة", `◐ ${impact.current.reviewCount}`, `◐ ${impact.target.reviewCount}`],
+                        ["متطلبات مستوفاة", `✓ ${impact.current.passedCount}`, `✓ ${impact.target.passedCount}`],
+                      ].map(([label, from, to]) => (
+                        <tr key={label}>
+                          <th scope="row" className="border-b border-rule py-2 text-start text-xs font-normal text-muted">
+                            {label}
+                          </th>
+                          <td className="border-b border-rule py-2">{from}</td>
+                          <td className="border-b border-rule py-2 font-semibold">{to}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <p className="text-[14px] font-semibold">
+                  الآن: {problemsPhrase(impact.current.hardErrorCount)} · بعد التغيير:{" "}
+                  {problemsPhrase(impact.target.hardErrorCount)}
+                </p>
+
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div className="flex flex-col gap-4">
+                    <ImpactGroup title="سيصبح مستوفى" tone="pass" items={impact.becomesPassed} />
+                    <ImpactGroup title="لم يعد مطلوبًا" tone="neutral" items={impact.noLongerRequired} />
+                    <ImpactGroup title="تغيّر الشرط" tone="neutral" items={impact.changedRules} />
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    <ImpactGroup title="سيحتاج معالجة" tone="fail" items={impact.needsAttention} />
+                    <ImpactGroup title="متطلب جديد" tone="neutral" items={impact.newRequirements} />
+                    <ImpactGroup title="بحاجة إلى مراجعة" tone="review" items={impact.newReviews} />
+                  </div>
+                </div>
+
+                <p className="text-[12.5px] text-muted">و{impact.unchangedCount} متطلبات أخرى بلا تغيير في النتيجة.</p>
+              </>
+            )}
 
             <div className="flex flex-wrap items-center gap-3 border-t border-rule pt-4">
               <button
@@ -266,13 +385,24 @@ export function SwitchJournalDialog({
                 إلغاء
               </button>
               <span className="flex-1" />
-              <button
-                type="button"
-                onClick={() => onConfirm(target.journalId)}
-                className="h-11 rounded-[3px] bg-ink px-5 text-sm font-bold text-paper hover:bg-ink/90"
-              >
-                تأكيد تغيير المجلة
-              </button>
+              {targetEntry?.status === "error" ? (
+                <button
+                  type="button"
+                  onClick={() => onRequestReport(target.journalId)}
+                  className="h-11 rounded-[3px] bg-ink px-5 text-sm font-bold text-paper hover:bg-ink/90"
+                >
+                  إعادة المحاولة
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!targetReport}
+                  onClick={() => onConfirm(target.journalId)}
+                  className="h-11 rounded-[3px] bg-ink px-5 text-sm font-bold text-paper hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  تأكيد تغيير المجلة
+                </button>
+              )}
             </div>
           </>
         )}
