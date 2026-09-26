@@ -5,7 +5,11 @@
  */
 
 export const ACCEPTED_EXTENSIONS = [".docx"] as const;
-export const ACCEPT_ATTRIBUTE = ACCEPTED_EXTENSIONS.join(",");
+
+/* Helps the operating-system file picker show only Word .docx files; validation still checks the extension. */
+const DOCX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+export const ACCEPT_ATTRIBUTE = [...ACCEPTED_EXTENSIONS, DOCX_MIME_TYPE].join(",");
 export const MAX_UPLOAD_MB = 25;
 export const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
@@ -24,7 +28,8 @@ export function validateManuscriptFile(file: File): FileValidation {
   if (!isAcceptedExtension(getFileExtension(file.name))) {
     return {
       ok: false,
-      message: "صيغة الملف غير مدعومة حاليًا. ارفع مستند Word بصيغة DOCX.",
+      // \u200E keeps ".docx" displayed left-to-right inside the Arabic sentence.
+      message: "هذا الملف غير مدعوم. ارفع مستند Word بصيغة \u200E.docx\u200E فقط.",
     };
   }
   if (file.size === 0) {

@@ -23,6 +23,8 @@ type ReadyViewProps = {
   requirements: WorkspaceRequirement[];
   summary: ReadinessSummary;
   isDemoManuscript: boolean;
+  /* Name of the file uploaded in this browser session; null when unknown. */
+  fileName: string | null;
 };
 
 /* Demo journals are fictional: their extraction metadata is not a real verification. */
@@ -96,7 +98,14 @@ function SummaryRow({ label, children }: { label: string; children: ReactNode })
  * Readiness exactly as POST /validate reports it for the uploaded manuscript. When the backend
  * says it is not fully ready, this page says so; nothing here can make it ready.
  */
-export function ReadyView({ journal, manuscript, requirements, summary, isDemoManuscript }: ReadyViewProps) {
+export function ReadyView({
+  journal,
+  manuscript,
+  requirements,
+  summary,
+  isDemoManuscript,
+  fileName,
+}: ReadyViewProps) {
   const isReady = summary.isFullyReady;
   const remaining = requirements.filter((requirement) => requirement.status !== "passed");
   const workspaceHref = `/workspace?journal=${encodeURIComponent(journal.journalId)}`;
@@ -121,6 +130,31 @@ export function ReadyView({ journal, manuscript, requirements, summary, isDemoMa
           <p className="mt-4 max-w-[640px] text-[17px] leading-[1.85] text-body">
             {isReady ? "استوفت المخطوطة المتطلبات التي تحقّق منها وَرَّاق لهذه المجلة." : notReadyText}
           </p>
+
+          {isReady && (
+            <div role="status" className="mt-7 max-w-[720px] border-s-[3px] border-mint bg-paper-raised px-5 py-4">
+              <p className="text-[13px] font-bold text-mint-text">✓ اكتملت رحلة التجهيز</p>
+              <p className="mt-2 text-[15px] leading-[1.85] text-body">
+                {fileName ? (
+                  <>
+                    الملف الذي رفعته{" "}
+                    <span dir="ltr" className="font-latin font-semibold text-ink break-all">
+                      {fileName}
+                    </span>{" "}
+                    هو نفسه النسخة التي فحصها وَرَّاق لهذه المجلة.
+                  </>
+                ) : (
+                  "ملف Word الذي رفعته هو نفسه النسخة التي فحصها وَرَّاق لهذه المجلة."
+                )}{" "}
+                لم يُعدّل وَرَّاق الملف، ولم يُنشئ نسخة جديدة منه.
+              </p>
+              <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">
+                {journal.sourceIsDemo
+                  ? "هذه مجلة تجريبية؛ التقديم الفعلي غير متاح."
+                  : "يتم التقديم عبر نظام المجلة نفسه، ولا يقدّم وَرَّاق البحث نيابةً عنك."}
+              </p>
+            </div>
+          )}
 
           <div className="mt-7 flex flex-wrap items-end gap-4">
             <div>
@@ -302,7 +336,7 @@ export function ReadyView({ journal, manuscript, requirements, summary, isDemoMa
             href={workspaceHref}
             className="inline-flex h-12 items-center rounded-[3px] bg-ink px-6 text-[15px] font-bold text-paper hover:bg-ink/90"
           >
-            العودة إلى مساحة التجهيز
+            {isReady ? "عرض البحث" : "العودة إلى مساحة التجهيز"}
           </Link>
 
           {!isReady && (

@@ -1,3 +1,4 @@
+import { BrandIntro } from "@/components/brand/BrandIntro";
 import { JourneyTimeline } from "@/components/layout/JourneyTimeline";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { DemoManuscriptButton } from "@/components/upload/DemoManuscriptButton";
@@ -6,6 +7,8 @@ import { UploadDropzone } from "@/components/upload/UploadDropzone";
 export default function HomePage() {
   return (
     <div className="flex min-h-dvh flex-col">
+      <BrandIntro />
+
       <SiteHeader />
 
       <main className="flex flex-1 flex-col gap-14 px-6 pt-12 lg:flex-row lg:gap-[88px] lg:px-[72px] lg:pt-[72px]">
@@ -46,7 +49,7 @@ export default function HomePage() {
       </main>
 
       <footer className="flex h-16 shrink-0 items-center justify-center text-[15px] text-body">
-        كل فكرة <span className="mx-1.5 font-bold text-terracotta">..</span> ورّاقة
+        كل فكرة <span className="mx-1.5 font-bold text-terracotta">..</span> وَرَّاقة
       </footer>
     </div>
   );

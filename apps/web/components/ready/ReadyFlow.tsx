@@ -35,6 +35,8 @@ type LoadState =
       requirements: WorkspaceRequirement[];
       summary: ReadinessSummary;
       isDemoManuscript: boolean;
+      /* Name of the file uploaded in this browser session, if the session recorded one. */
+      fileName: string | null;
     }
   | { status: "error"; error: ErrorPresentation; manuscriptGone: boolean };
 
@@ -75,6 +77,7 @@ export function ReadyFlow({ journalId }: ReadyFlowProps) {
 
       const manuscriptId = session.manuscriptId;
       const isDemoManuscript = session.isDemoManuscript;
+      const fileName = session.file.name.trim() || null;
       apply({ status: "loading" });
 
       void Promise.allSettled([
@@ -130,6 +133,7 @@ export function ReadyFlow({ journalId }: ReadyFlowProps) {
           // The only readiness authority: the backend summary, unchanged.
           summary: toWorkspaceReadiness(report.summary),
           isDemoManuscript,
+          fileName,
         });
       });
     });
@@ -246,6 +250,7 @@ export function ReadyFlow({ journalId }: ReadyFlowProps) {
         requirements={load.requirements}
         summary={load.summary}
         isDemoManuscript={load.isDemoManuscript}
+        fileName={load.fileName}
       />
     </>
   );

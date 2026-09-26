@@ -182,10 +182,27 @@ export function UploadDropzone() {
             >
               أو اختر ملفًا من جهازك
             </button>
-            <span dir="ltr" className="mt-2 font-latin text-[13px] text-muted">
-              DOCX (Microsoft Word)
+            <span className="mt-2 text-[13.5px] font-semibold text-body">
+              ملفات Word بصيغة{" "}
+              <span dir="ltr" className="font-latin">
+                .docx
+              </span>{" "}
+              فقط
             </span>
-            <span className="text-[12.5px] text-muted">حتى {MAX_UPLOAD_MB} ميغابايت</span>
+            <span className="text-[12.5px] text-muted">
+              حتى {MAX_UPLOAD_MB} ميغابايت · لا ندعم حاليًا{" "}
+              <span dir="ltr" className="font-latin">
+                PDF
+              </span>{" "}
+              أو{" "}
+              <span dir="ltr" className="font-latin">
+                .doc
+              </span>{" "}
+              أو{" "}
+              <span dir="ltr" className="font-latin">
+                LaTeX
+              </span>
+            </span>
             {state.status === "error" && (
               <p role="alert" className="mt-1 text-[13.5px] font-semibold text-terracotta-text">
                 ✕ {state.message}
