@@ -4,7 +4,6 @@
 
 ### كل فكرة .. ورّاقة ✨
 
-**Your research is done. Getting it published shouldn't feel like a second PhD.**
 
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
