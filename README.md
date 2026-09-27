@@ -21,7 +21,7 @@ In classical Arabic book culture, the **ورّاق** was the person who copied, 
 manuscripts: the one who turned an author's work into something ready for readers.
 We're doing the same job, just with fewer ink stains.
 
-## 😩 The problem, in one story
+## 🧶 The problem, in one story
 
 You finish your paper. 🎉 Then you open twelve journal websites in twelve tabs. One wants a
 250-word abstract, another wants 300. One wants APA, another wants IEEE. One wants "highlights"
