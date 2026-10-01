@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import get_settings
 from db import get_store
 from db.seed import seed_if_empty
-from routers import citations, journal_lists, journals, manuscripts, match, suggestions, validate
+from routers import citations, editing, journal_lists, journals, manuscripts, match, suggestions, validate
 
 settings = get_settings()
 
@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Warraq API",
-    version="0.5.0",
+    version="0.6.0",
     lifespan=lifespan,
 )
 
@@ -31,9 +31,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Lets the browser read the download file name.
+    expose_headers=["Content-Disposition"],
 )
 
 app.include_router(manuscripts.router)
+app.include_router(editing.router)
 app.include_router(match.router)
 app.include_router(journal_lists.router)
 app.include_router(journals.router)
