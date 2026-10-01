@@ -203,7 +203,9 @@ backend is running.
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | POST | `/manuscripts/upload` | Parse a DOCX and return a `manuscript_id` (identical files are served from cache) |
-| GET | `/manuscripts/{id}` | A saved manuscript |
+| GET | `/manuscripts/{id}` | A saved manuscript (current version) |
+| PATCH · POST | `/manuscripts/{id}/blocks/…` · `/apply-suggestion/…` · `/references` · `/undo` · `/reset` | Edit the manuscript ([`docs/editing.md`](docs/editing.md)) |
+| GET | `/manuscripts/{id}/download` | Download the edited Word file |
 | GET | `/journals` | Journal catalog as summary cards |
 | GET | `/journals/{id}` | One journal's full rules and sources |
 | GET | `/journals/review-queue` | Journals the agent flagged for human review |

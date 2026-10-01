@@ -11,6 +11,7 @@ from db import get_store
 from db.store import Store
 from models.manuscript import ManuscriptRecord, ManuscriptUploadResponse
 from services.analyzer.parser import parse_docx
+from services.editing import save_original
 
 router = APIRouter(
     prefix="/manuscripts",
@@ -47,11 +48,15 @@ async def upload_manuscript(
     content_hash = hashlib.sha256(content).hexdigest()
     cached = store.get_manuscript_by_hash(content_hash)
     if cached:
+        # Manuscripts uploaded before editing existed get their file kept now.
+        save_original(store, cached, content)
+        cached = store.get_manuscript(cached.manuscript_id)
         return ManuscriptUploadResponse(
             manuscript_id=cached.manuscript_id,
             filename=cached.filename,
             parsed=cached.parsed,
             from_cache=True,
+            revision=cached.revision,
         )
 
     temp_path = None
@@ -74,6 +79,7 @@ async def upload_manuscript(
         parsed=parsed,
     )
     store.save_manuscript(record)
+    save_original(store, record, content)
 
     return ManuscriptUploadResponse(
         manuscript_id=record.manuscript_id,

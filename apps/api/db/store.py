@@ -13,7 +13,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from models.journal import JournalRequirementSpec, ReviewQueueItem
-from models.manuscript import ManuscriptRecord
+from models.manuscript import ManuscriptRecord, RevisionInfo
+from services.analyzer.models import ManuscriptParsedData
 from models.validation import Suggestion
 
 _SCHEMA = """
@@ -21,6 +22,15 @@ CREATE TABLE IF NOT EXISTS manuscripts (
     manuscript_id TEXT PRIMARY KEY,
     content_hash  TEXT NOT NULL UNIQUE,
     data          TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS manuscript_revisions (
+    manuscript_id TEXT    NOT NULL,
+    revision      INTEGER NOT NULL,
+    created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    description   TEXT    NOT NULL,
+    docx          BLOB    NOT NULL,
+    parsed        TEXT    NOT NULL,
+    PRIMARY KEY (manuscript_id, revision)
 );
 CREATE TABLE IF NOT EXISTS journals (
     journal_id TEXT PRIMARY KEY,
@@ -92,19 +102,72 @@ class Store:
                 (record.manuscript_id, record.content_hash, record.model_dump_json()),
             )
 
+    def _with_current_revision(self, record: ManuscriptRecord, c) -> ManuscriptRecord:
+        rows = c.execute(
+            "SELECT revision, description, created_at FROM manuscript_revisions "
+            "WHERE manuscript_id = ? ORDER BY revision",
+            (record.manuscript_id,),
+        ).fetchall()
+        if not rows:
+            return record  # uploaded before editing existed: original parse, not editable
+        latest = rows[-1][0]
+        parsed = c.execute(
+            "SELECT parsed FROM manuscript_revisions WHERE manuscript_id = ? AND revision = ?",
+            (record.manuscript_id, latest),
+        ).fetchone()[0]
+        record.parsed = ManuscriptParsedData.model_validate_json(parsed)
+        record.revision = latest
+        record.editable = True
+        record.history = [RevisionInfo(revision=r, description=d, created_at=t) for r, d, t in rows]
+        return record
+
     def get_manuscript(self, manuscript_id: str) -> ManuscriptRecord | None:
+        """The manuscript at its CURRENT revision (what validate/match/suggestions should see)."""
         with self._tx() as c:
             row = c.execute(
                 "SELECT data FROM manuscripts WHERE manuscript_id = ?", (manuscript_id,)
             ).fetchone()
-        return ManuscriptRecord.model_validate_json(row[0]) if row else None
+            return self._with_current_revision(ManuscriptRecord.model_validate_json(row[0]), c) if row else None
 
     def get_manuscript_by_hash(self, content_hash: str) -> ManuscriptRecord | None:
         with self._tx() as c:
             row = c.execute(
                 "SELECT data FROM manuscripts WHERE content_hash = ?", (content_hash,)
             ).fetchone()
-        return ManuscriptRecord.model_validate_json(row[0]) if row else None
+            return self._with_current_revision(ManuscriptRecord.model_validate_json(row[0]), c) if row else None
+
+    # ---- manuscript revisions (editing) ----
+
+    def save_revision(self, manuscript_id: str, revision: int, description: str,
+                      docx: bytes, parsed: ManuscriptParsedData) -> None:
+        with self._tx() as c:
+            c.execute(
+                "INSERT OR REPLACE INTO manuscript_revisions "
+                "(manuscript_id, revision, description, docx, parsed) VALUES (?, ?, ?, ?, ?)",
+                (manuscript_id, revision, description, docx, parsed.model_dump_json()),
+            )
+
+    def get_revision_docx(self, manuscript_id: str, revision: int | None = None) -> tuple[int, bytes] | None:
+        """(revision, file bytes) for the given revision, or the latest when revision is None."""
+        with self._tx() as c:
+            if revision is None:
+                row = c.execute(
+                    "SELECT revision, docx FROM manuscript_revisions WHERE manuscript_id = ? "
+                    "ORDER BY revision DESC LIMIT 1", (manuscript_id,)
+                ).fetchone()
+            else:
+                row = c.execute(
+                    "SELECT revision, docx FROM manuscript_revisions WHERE manuscript_id = ? AND revision = ?",
+                    (manuscript_id, revision),
+                ).fetchone()
+        return (row[0], bytes(row[1])) if row else None
+
+    def delete_revisions_after(self, manuscript_id: str, revision: int) -> None:
+        with self._tx() as c:
+            c.execute(
+                "DELETE FROM manuscript_revisions WHERE manuscript_id = ? AND revision > ?",
+                (manuscript_id, revision),
+            )
 
     # ---- journals ----
 
@@ -244,6 +307,14 @@ class Store:
             c.execute(
                 "INSERT OR REPLACE INTO suggestion_runs VALUES (?, ?)", (manuscript_id, journal_id)
             )
+
+    def get_suggestion_owner(self, suggestion_id: str) -> tuple[str, str] | None:
+        """(manuscript_id, journal_id) the suggestion was generated for."""
+        with self._tx() as c:
+            row = c.execute(
+                "SELECT manuscript_id, journal_id FROM suggestions WHERE suggestion_id = ?", (suggestion_id,)
+            ).fetchone()
+        return (row[0], row[1]) if row else None
 
     def get_suggestion(self, suggestion_id: str) -> Suggestion | None:
         with self._tx() as c:

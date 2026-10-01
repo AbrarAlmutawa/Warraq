@@ -115,7 +115,8 @@ This follows Warraq's principle of flagging instead of guessing.
 ## 5. Endpoints (implemented)
 
 - `POST /manuscripts/upload` → `ManuscriptUploadResponse`
-- `GET /manuscripts/{manuscript_id}` → `ManuscriptRecord`
+- `GET /manuscripts/{manuscript_id}` → `ManuscriptRecord` (current revision)
+- Editing (`PATCH .../blocks/{id}`, `POST .../apply-suggestion/{id}`, `.../references`, `.../undo`, `.../reset`, `GET .../download`): see `docs/editing.md`
 - `GET /journals` → `JournalSummary[]`
 - `GET /journals/review-queue` → `ReviewQueueItem[]`
 - `GET /journals/{journal_id}` → `JournalRequirementSpec`
