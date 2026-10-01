@@ -2,7 +2,8 @@ import type { ApiBlock, ApiParsedManuscript } from "@/lib/api-client";
 import type { BlockDocument, BlockSection, EditorRange } from "@/lib/workspace/types";
 
 /*
- * Builds the read-only Monaco document from the backend's parsed blocks.
+ * Builds the Monaco document from the backend's parsed blocks of the current version.
+ * The text is not typed into directly: paragraphs are edited through the backend (docs/editing.md).
  *
  * - One block = one editor line (whitespace collapsed); a blank line separates blocks.
  * - Every block id maps to the range of its own line, computed from the text built here,

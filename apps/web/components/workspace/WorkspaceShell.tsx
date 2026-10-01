@@ -6,6 +6,8 @@ import {
   CitationConversionDialog,
   type ConversionEntry,
 } from "@/components/workspace/CitationConversionDialog";
+import { EditParagraphDialog, type ParagraphTarget } from "@/components/workspace/EditParagraphDialog";
+import { ManuscriptToolbar } from "@/components/workspace/ManuscriptToolbar";
 import {
   RequirementsPanel,
   type DecisionState,
@@ -22,30 +24,42 @@ import { WorkspaceSourceDialog } from "@/components/workspace/WorkspaceSourceDia
 import { WorkspaceToast } from "@/components/workspace/WorkspaceToast";
 import {
   toCitationProposal,
+  toManuscriptVersion,
   toSuggestionsResult,
+  toWorkspaceBaseStats,
   toWorkspaceReadiness,
   toWorkspaceRequirement,
   toWorkspaceSuggestion,
 } from "@/lib/api-adapters";
 import {
+  applySuggestion,
   compareReadiness,
   convertCitations,
   decideSuggestion,
+  downloadManuscript,
+  editBlock,
   getSuggestions,
+  replaceReferences,
+  resetManuscript,
+  undoLastEdit,
   validateManuscript,
+  type ApiManuscriptRecord,
 } from "@/lib/api-client";
 import { describeError, type ErrorPresentation } from "@/lib/api-errors";
 import type { JournalSummary } from "@/lib/journals/types";
 import { readSession } from "@/lib/session";
+import { buildBlockDocument } from "@/lib/workspace/block-document";
 import { buildRequirementDecorations, requirementRanges } from "@/lib/workspace/decorations";
+import { isApplicable, placeholdersIn } from "@/lib/workspace/editing";
 import { compareReports, type JournalReport } from "@/lib/workspace/switch-impact";
 import type {
-  BlockDocument,
   BlockSection,
+  CitationProposal,
   EditorRange,
   PanelTab,
   SelectedItem,
   SuggestionStatus,
+  WorkspaceBaseStats,
   WorkspaceRequirement,
   WorkspaceSuggestion,
 } from "@/lib/workspace/types";
@@ -75,27 +89,37 @@ const MISSING_RESULT: ErrorPresentation = {
 
 const IDLE_SUGGESTIONS: SuggestionsState = { status: "idle" };
 
-export type WorkspaceStats = {
-  wordCount: number;
-  referenceCount: number;
-  figureCount: number;
-  tableCount: number;
+export type WorkspaceStats = WorkspaceBaseStats & {
   /** As measured by the backend's citation_style rule; null when this journal has no such rule */
   citationStyle: string | null;
 };
 
-export type WorkspaceBaseStats = Omit<WorkspaceStats, "citationStyle">;
+/* "switch": undo returns to the previous journal. "edit": undo removes the latest revision. */
+type ToastState =
+  | { kind: "switch"; text: string; detail: string; previousJournalId: string }
+  | { kind: "edit"; text: string; detail: string; undoable: boolean };
 
-type ToastState = { text: string; detail: string; previousJournalId: string };
+type EditState = { busy: string | null; error: string | null };
 
 type WorkspaceShellProps = {
   manuscriptId: string;
-  manuscriptDocument: BlockDocument;
+  /* GET /manuscripts/{id}: the current version (latest revision) of the manuscript. */
+  initialRecord: ApiManuscriptRecord;
   journals: JournalSummary[];
   initialJournalId: string;
   initialReport: JournalReport;
-  baseStats: WorkspaceBaseStats;
 };
+
+function saveFile(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 function has<T>(record: Record<string, T>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(record, key);
@@ -106,21 +130,37 @@ function displayName(journal: JournalSummary | undefined): string {
 }
 
 /*
- * The real, read-only preparation workspace.
- * Everything shown comes from the backend: the parsed blocks (editor text, parsed once), and
- * POST /validate per journal (checklist, highlights, readiness summary). Switching journals only
- * re-validates the same manuscript_id; confirm and undo reuse results already fetched.
- * Suggestions and citation conversions are proposals: they never feed the checklist, the
- * editor, the decorations or readiness.
+ * The real preparation workspace.
+ * Everything shown comes from the backend: the current version's parsed blocks (editor text)
+ * and POST /validate per journal (checklist, highlights, readiness summary). Switching journals
+ * only re-validates the same manuscript_id.
+ *
+ * Editing (docs/editing.md): the researcher changes the manuscript only through explicit
+ * actions (edit a paragraph, apply a suggestion, apply a citation conversion). Each one is
+ * saved on the backend as a new revision of their Word file; the response replaces the editor
+ * text, cached results for the old version are dropped, and the checklist is re-run. Because
+ * the revision lives on the backend, edits survive leaving and reopening the workspace.
  */
 export function WorkspaceShell({
   manuscriptId,
-  manuscriptDocument,
+  initialRecord,
   journals,
   initialJournalId,
   initialReport,
-  baseStats,
 }: WorkspaceShellProps) {
+  /* The current version of the manuscript (replaced by every edit response). */
+  const [record, setRecord] = useState(initialRecord);
+  const manuscriptDocument = useMemo(() => buildBlockDocument(record.parsed), [record]);
+  const baseStats = useMemo(() => toWorkspaceBaseStats(record.parsed), [record]);
+  const version = useMemo(() => toManuscriptVersion(record), [record]);
+
+  const [editState, setEditState] = useState<EditState>({ busy: null, error: null });
+  const [applyingSuggestionId, setApplyingSuggestionId] = useState<string | null>(null);
+  const [revalidating, setRevalidating] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [cursorLine, setCursorLine] = useState<number | null>(null);
+  const [paragraphTarget, setParagraphTarget] = useState<ParagraphTarget | null>(null);
+
   const [activeJournalId, setActiveJournalId] = useState(initialJournalId);
   /* Full /validate results per journal id, for the life of this page. */
   const [reports, setReports] = useState<Record<string, JournalReport>>(() => ({ [initialJournalId]: initialReport }));
@@ -177,6 +217,17 @@ export function WorkspaceShell({
     ...baseStats,
     citationStyle: requirements.find((requirement) => requirement.ruleId === "citation_style")?.measured ?? null,
   };
+
+  // The paragraph under the editor cursor (one block = one line).
+  let cursorBlock: ParagraphTarget | null = null;
+  if (cursorLine !== null) {
+    for (const [blockId, range] of manuscriptDocument.blockRanges) {
+      if (range.startLineNumber === cursorLine) {
+        cursorBlock = { blockId, text: manuscriptDocument.text.split("\n")[cursorLine - 1] ?? "" };
+        break;
+      }
+    }
+  }
 
   const sourceRequirement = requirements.find((requirement) => requirement.ruleId === sourceRuleId) ?? null;
   const activeSuggestions = has(suggestionsByJournal, activeJournalId)
@@ -270,7 +321,7 @@ export function WorkspaceShell({
     );
   };
 
-  // ── Citation conversion (read-only proposal)
+  // ── Citation conversion (a proposal until the researcher applies it)
   const loadConversion = (journalId: string) => {
     const current = has(conversions, journalId) ? conversions[journalId] : undefined;
     if (current?.status === "loading" || (current?.status === "ready" && current.cacheable)) return;
@@ -306,6 +357,166 @@ export function WorkspaceShell({
       if (match) setSelected({ type: "suggestion", id: match.id });
     }
     loadSuggestions(activeJournalId, requirement.ruleId);
+  };
+
+  // ── Editing: every change is a backend revision; afterwards the old version's results go stale
+  const revalidate = (journalId: string) => {
+    setRevalidating(true);
+    validateManuscript(manuscriptId, journalId).then(
+      (report) => {
+        const entry: JournalReport = {
+          requirements: (report.results ?? []).map(toWorkspaceRequirement),
+          summary: toWorkspaceReadiness(report.summary),
+        };
+        setReports((current) => ({ ...current, [journalId]: entry }));
+        setRevalidating(false);
+      },
+      (error: unknown) => {
+        setRevalidating(false);
+        setEditState({ busy: null, error: `حُفظ التعديل، لكن تعذّر إعادة الفحص: ${describeError(error).title}` });
+      },
+    );
+  };
+
+  const adoptVersion = (next: ApiManuscriptRecord) => {
+    setRecord(next);
+    setSelected(null);
+    setCursorLine(null);
+    // Results for the previous version are no longer true. Keep the active report on screen
+    // until the new one arrives (so the panel never goes empty), drop everything else.
+    setReports((current) => ({ [activeJournalId]: current[activeJournalId] }));
+    setOutlooks({});
+    setReportRequests({});
+    setConversions({});
+    setSuggestionsByJournal((current) =>
+      has(current, activeJournalId) ? { [activeJournalId]: current[activeJournalId] } : {},
+    );
+    revalidate(activeJournalId);
+  };
+
+  const runEdit = (
+    busyLabel: string,
+    call: () => Promise<ApiManuscriptRecord>,
+    onDone: (next: ApiManuscriptRecord) => void,
+    onFail?: (message: string) => void,
+  ) => {
+    if (editState.busy) return;
+    setEditState({ busy: busyLabel, error: null });
+    call().then(
+      (next) => {
+        setEditState({ busy: null, error: null });
+        adoptVersion(next);
+        onDone(next);
+      },
+      (error: unknown) => {
+        const presentation = describeError(error);
+        const message = presentation.detail ? `${presentation.title}: ${presentation.detail}` : presentation.title;
+        setEditState({ busy: null, error: message });
+        onFail?.(message);
+      },
+    );
+  };
+
+  const editToast = (text: string, detail = "", undoable = true) => setToast({ kind: "edit", text, detail, undoable });
+
+  const canApplySuggestion = (suggestion: WorkspaceSuggestion) => version.editable && isApplicable(suggestion);
+
+  const applyAiSuggestion = (suggestion: WorkspaceSuggestion) => {
+    setApplyingSuggestionId(suggestion.id);
+    runEdit(
+      "نطبّق الاقتراح على مخطوطتك…",
+      () => applySuggestion(manuscriptId, suggestion.id),
+      (next) => {
+        setApplyingSuggestionId(null);
+        const applied: WorkspaceSuggestion = { ...suggestion, status: "accepted", appliedRevision: next.revision ?? null };
+        setSuggestionsByJournal((state) => {
+          const copy: Record<string, SuggestionsState> = {};
+          for (const [journalId, entry] of Object.entries(state)) {
+            copy[journalId] =
+              entry.status === "ready"
+                ? {
+                    status: "ready",
+                    result: {
+                      ...entry.result,
+                      suggestions: entry.result.suggestions.map((item) => (item.id === applied.id ? applied : item)),
+                    },
+                  }
+                : entry;
+          }
+          return copy;
+        });
+        const placeholders = placeholdersIn(suggestion.after);
+        editToast(
+          "طُبّق الاقتراح على مخطوطتك وأُعيد فحص المتطلبات.",
+          placeholders.length > 0 ? `أكمل الحقول بين الأقواس قبل الإرسال: ${placeholders.join(" ")}` : "",
+        );
+      },
+      () => setApplyingSuggestionId(null),
+    );
+  };
+
+  const applyConversion = (proposal: CitationProposal) => {
+    // References the AI could not convert stay, unchanged, at the end of the list.
+    const kept = proposal.failedIndexes
+      .map((index) => record.parsed.references[index - 1])
+      .filter((reference): reference is string => Boolean(reference));
+    const references = [...proposal.references.map((reference) => reference.converted), ...kept];
+    const style = proposal.toStyle.toUpperCase();
+    runEdit(
+      "نطبّق تحويل المراجع…",
+      () => replaceReferences(manuscriptId, references, `References converted to ${style}`),
+      () => {
+        setConversionOpen(false);
+        editToast(`حُوّلت المراجع إلى ${style} في مخطوطتك.`, kept.length > 0 ? `بقي ${kept.length} مرجع بصيغته الأصلية في آخر القائمة.` : "");
+      },
+    );
+  };
+
+  const openParagraphEditor = () => {
+    if (cursorBlock) {
+      setEditState((state) => ({ ...state, error: null }));
+      setParagraphTarget(cursorBlock);
+    }
+  };
+
+  const saveParagraph = (text: string) => {
+    if (!paragraphTarget) return;
+    runEdit(
+      "نحفظ التعديل…",
+      () => editBlock(manuscriptId, paragraphTarget.blockId, text),
+      () => {
+        setParagraphTarget(null);
+        editToast("حُفظ تعديل الفقرة وأُعيد فحص المتطلبات.");
+      },
+    );
+  };
+
+  const undoEdit = () => {
+    setToast(null);
+    runEdit("نتراجع عن آخر تعديل…", () => undoLastEdit(manuscriptId), () => {});
+  };
+
+  const resetToOriginal = () => {
+    if (!window.confirm("ستُلغى كل التعديلات وتعود المخطوطة إلى نسختها الأصلية. هل تريد المتابعة؟")) return;
+    setToast(null);
+    runEdit("نعيد المخطوطة إلى نسختها الأصلية…", () => resetManuscript(manuscriptId), () =>
+      editToast("أُعيدت المخطوطة إلى نسختها الأصلية.", "", false),
+    );
+  };
+
+  const download = () => {
+    if (downloading) return;
+    setDownloading(true);
+    downloadManuscript(manuscriptId).then(
+      ({ blob, filename }) => {
+        setDownloading(false);
+        saveFile(blob, filename);
+      },
+      (error: unknown) => {
+        setDownloading(false);
+        setEditState({ busy: null, error: `تعذّر تنزيل الملف: ${describeError(error).title}` });
+      },
+    );
   };
 
   // ── Switch journal: backend requests (only for journals without a result yet)
@@ -403,6 +614,7 @@ export function WorkspaceShell({
     const impact = compareReports(activeReport, reports[targetId]);
 
     setToast({
+      kind: "switch",
       previousJournalId: activeJournalId,
       text: `تم تغيير المجلة إلى ${displayName(journalsById.get(targetId))} وإعادة فحص المتطلبات.`,
       detail: `أصبح مستوفى: ${impact.becomesPassed.length} · يحتاج معالجة: ${impact.target.hardErrorCount}`,
@@ -411,9 +623,14 @@ export function WorkspaceShell({
     activateJournal(targetId);
   };
 
-  const undoSwitch = () => {
+  const undoToast = () => {
     if (!toast) return;
-    activateJournal(toast.previousJournalId);
+    if (toast.kind === "edit") {
+      undoEdit();
+      return;
+    }
+    // After an edit the previous journal's report is dropped; switching back needs a new one.
+    if (has(reports, toast.previousJournalId)) activateJournal(toast.previousJournalId);
     setToast(null);
   };
 
@@ -467,6 +684,19 @@ export function WorkspaceShell({
               <span className="font-bold text-mint-text">✓</span> مستوفى - بلا تظليل
             </span>
           </div>
+          <ManuscriptToolbar
+            version={version}
+            busyLabel={editState.busy}
+            revalidating={revalidating}
+            error={paragraphTarget ? null : editState.error}
+            canEditParagraph={cursorBlock !== null}
+            downloading={downloading}
+            onEditParagraph={openParagraphEditor}
+            onUndo={undoEdit}
+            onReset={resetToOriginal}
+            onDownload={download}
+            onDismissError={() => setEditState((state) => ({ ...state, error: null }))}
+          />
           <div className="min-h-0 flex-1 bg-paper-raised">
             <ManuscriptEditor
               value={manuscriptDocument.text}
@@ -474,6 +704,7 @@ export function WorkspaceShell({
               revealRange={revealRange}
               revealNonce={revealNonce}
               onSelectTarget={setSelected}
+              onCursorLine={setCursorLine}
             />
           </div>
         </main>
@@ -494,6 +725,10 @@ export function WorkspaceShell({
           canGoToSuggestion={canGoToSuggestion}
           onGoToSuggestion={goToSuggestion}
           onDecideSuggestion={recordDecision}
+          canApplySuggestion={canApplySuggestion}
+          applyingSuggestionId={applyingSuggestionId}
+          editBusy={editState.busy !== null}
+          onApplySuggestion={applyAiSuggestion}
         />
       </div>
 
@@ -505,7 +740,7 @@ export function WorkspaceShell({
         <WorkspaceToast
           text={toast.text}
           detail={toast.detail}
-          onUndo={undoSwitch}
+          onUndo={toast.kind === "edit" && !toast.undoable ? undefined : undoToast}
           onClose={() => setToast(null)}
         />
       )}
@@ -521,6 +756,18 @@ export function WorkspaceShell({
         entry={activeConversion}
         onRetry={() => loadConversion(activeJournalId)}
         onClose={() => setConversionOpen(false)}
+        canApply={version.editable}
+        applying={editState.busy !== null && conversionOpen}
+        applyError={conversionOpen ? editState.error : null}
+        onApply={applyConversion}
+      />
+
+      <EditParagraphDialog
+        target={paragraphTarget}
+        saving={editState.busy !== null}
+        error={paragraphTarget ? editState.error : null}
+        onSave={saveParagraph}
+        onClose={() => setParagraphTarget(null)}
       />
 
       <SwitchJournalDialog

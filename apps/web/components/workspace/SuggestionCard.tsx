@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { placeholdersIn } from "@/lib/workspace/editing";
 import type { PresentedText } from "@/lib/workspace/requirement-labels";
 import { suggestionLabel, suggestionTitle } from "@/lib/workspace/suggestion-labels";
 import type { SuggestionStatus, WorkspaceSuggestion } from "@/lib/workspace/types";
@@ -13,8 +14,15 @@ type SuggestionCardProps = {
   saving: boolean;
   /* The last decision request failed (Arabic message); the status did not change. */
   error: string | null;
+  /* This suggestion changes the text and the manuscript can be edited: offer "apply". */
+  applicable: boolean;
+  /* POST .../apply-suggestion for this card is in flight. */
+  applying: boolean;
+  /* Another edit is running, so applying is temporarily unavailable. */
+  editBusy: boolean;
   onGoToText: () => void;
   onDecide: (status: SuggestionStatus) => void;
+  onApply: () => void;
 };
 
 function ShaddaIcon() {
@@ -50,8 +58,9 @@ function Segments({ parts }: { parts: PresentedText[] }) {
 }
 
 /*
- * A backend AI suggestion. A proposal only: accepting or rejecting records the researcher's
- * decision on the backend and never edits the manuscript or changes readiness.
+ * A backend AI suggestion. Text changes (shorter title, highlights, a statement...) are applied
+ * to the manuscript only when the researcher presses "apply"; that creates a new revision and
+ * the checklist is re-run. Advice such as scope fit is accepted or rejected as a decision only.
  */
 export function SuggestionCard({
   suggestion,
@@ -59,13 +68,19 @@ export function SuggestionCard({
   canGoToText,
   saving,
   error,
+  applicable,
+  applying,
+  editBusy,
   onGoToText,
   onDecide,
+  onApply,
 }: SuggestionCardProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const previewId = `suggestion-preview-${suggestion.id}`;
   const label = suggestionLabel(suggestion);
   const hasPreview = Boolean(suggestion.before || suggestion.after);
+  const placeholders = placeholdersIn(suggestion.after);
+  const applied = suggestion.status === "accepted" && suggestion.appliedRevision !== null;
 
   return (
     <article
@@ -132,14 +147,25 @@ export function SuggestionCard({
                 {previewOpen ? "إخفاء المعاينة" : "معاينة"}
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => onDecide("accepted")}
-              disabled={saving}
-              className="h-9 rounded-[3px] bg-ink px-4 text-[13px] font-semibold text-paper hover:bg-ink/90 disabled:cursor-wait disabled:opacity-60"
-            >
-              قبول
-            </button>
+            {applicable ? (
+              <button
+                type="button"
+                onClick={onApply}
+                disabled={saving || applying || editBusy}
+                className="h-9 rounded-[3px] bg-ink px-4 text-[13px] font-semibold text-paper hover:bg-ink/90 disabled:cursor-wait disabled:opacity-60"
+              >
+                {applying ? "نطبّق…" : "تطبيق على المخطوطة"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onDecide("accepted")}
+                disabled={saving}
+                className="h-9 rounded-[3px] bg-ink px-4 text-[13px] font-semibold text-paper hover:bg-ink/90 disabled:cursor-wait disabled:opacity-60"
+              >
+                قبول
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onDecide("rejected")}
@@ -162,11 +188,37 @@ export function SuggestionCard({
         </>
       )}
 
-      {suggestion.status !== "pending" && (
+      {applicable && placeholders.length > 0 && suggestion.status === "pending" && (
+        <p className="mt-2 text-[12px] leading-relaxed text-body">
+          يحتوي النص المقترح على حقول تكملها أنت بعد التطبيق:{" "}
+          <span dir="ltr" className="font-latin font-semibold">
+            {placeholders.join(" ")}
+          </span>
+        </p>
+      )}
+
+      {applied && (
+        <div className="mt-3 flex flex-col gap-1 text-[13px]">
+          <span className="leading-relaxed font-semibold text-mint-text">
+            ✓ طُبّق على مخطوطتك (النسخة {suggestion.appliedRevision}) وأُعيد فحص المتطلبات.
+          </span>
+          {placeholders.length > 0 && (
+            <span className="leading-relaxed text-terracotta-text">
+              أكمل الحقول بين الأقواس قبل الإرسال:{" "}
+              <span dir="ltr" className="font-latin font-semibold">
+                {placeholders.join(" ")}
+              </span>
+            </span>
+          )}
+          <span className="text-[12px] text-muted">للتراجع استخدم زر «تراجع» أعلى المحرر.</span>
+        </div>
+      )}
+
+      {suggestion.status !== "pending" && !applied && (
         <div className="mt-3 flex items-center gap-3 text-[13px]">
           {suggestion.status === "accepted" ? (
             <span className="leading-relaxed font-semibold text-mint-text">
-              ✓ قبلتَ هذا الاقتراح — لم يُعدَّل البحث. طبّقه في ملف Word ثم ارفع النسخة المعدّلة لإعادة الفحص.
+              ✓ قبلتَ هذا الاقتراح.
             </span>
           ) : (
             <span className="text-body">رفضتَ هذا الاقتراح.</span>
@@ -183,9 +235,9 @@ export function SuggestionCard({
         </div>
       )}
 
-      {saving && (
+      {(saving || applying) && (
         <p role="status" className="mt-2 text-xs text-muted">
-          نحفظ قرارك…
+          {applying ? "نطبّق الاقتراح على مخطوطتك…" : "نحفظ قرارك…"}
         </p>
       )}
       {error && (

@@ -92,8 +92,9 @@ export type BlockDocument = {
 
 /*
  * One AI suggestion from POST /suggestions (Suggestion), via lib/api-adapters.ts.
- * A PROPOSAL only: accepting records the researcher's decision on the backend and never
- * changes the manuscript, the checklist or readiness. Text fields are the backend's own.
+ * A PROPOSAL until the researcher acts: suggestions that change text are applied to the
+ * manuscript only through "apply" (a new revision); others just record a decision.
+ * Text fields are the backend's own.
  */
 export type WorkspaceSuggestion = {
   /** Backend suggestion_id (scoped to manuscript + journal) */
@@ -111,6 +112,33 @@ export type WorkspaceSuggestion = {
   before: string | null;
   after: string | null;
   status: SuggestionStatus;
+  /** Manuscript revision created when this suggestion was applied; null if never applied */
+  appliedRevision: number | null;
+};
+
+/* ───────── Manuscript versions (editing, docs/editing.md) ───────── */
+
+/* Word counts and other numbers shown beside the editor, from the current version's parse. */
+export type WorkspaceBaseStats = {
+  wordCount: number;
+  referenceCount: number;
+  figureCount: number;
+  tableCount: number;
+};
+
+export type ManuscriptRevision = {
+  revision: number;
+  /** Backend description (English), e.g. "Highlights added (AI suggestion)" */
+  description: string;
+  createdAt: string;
+};
+
+/* Where the manuscript is in its edit history. Revision 0 is the original upload. */
+export type ManuscriptVersion = {
+  revision: number;
+  /** False only for manuscripts uploaded before editing existed (re-upload to enable) */
+  editable: boolean;
+  history: ManuscriptRevision[];
 };
 
 /* A POST /suggestions answer for one journal. */
