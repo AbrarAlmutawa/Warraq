@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { DownloadManuscriptButton } from "@/components/workspace/DownloadManuscriptButton";
 import { FIGURES, TABLES, arabicCount } from "@/lib/analysis/stages";
 import { CONFIDENCE, formatCheckedDate } from "@/lib/journals/format";
 import type { JournalSummary } from "@/lib/journals/types";
@@ -18,6 +19,7 @@ export type ReadyManuscript = {
 };
 
 type ReadyViewProps = {
+  manuscriptId: string;
   journal: JournalSummary;
   manuscript: ReadyManuscript;
   requirements: WorkspaceRequirement[];
@@ -99,6 +101,7 @@ function SummaryRow({ label, children }: { label: string; children: ReactNode })
  * says it is not fully ready, this page says so; nothing here can make it ready.
  */
 export function ReadyView({
+  manuscriptId,
   journal,
   manuscript,
   requirements,
@@ -113,7 +116,7 @@ export function ReadyView({
 
   const notReadyText = summary.meetsHardRequirements
     ? "المتطلبات الإلزامية مستوفاة حسب فحص وَرَّاق، وما زالت بنود بحاجة إلى مراجعتك قبل التقديم."
-    : "حسب فحص وَرَّاق لمخطوطتك كما رُفعت، ما زالت بعض المتطلبات غير مستوفاة. صحّحها في ملف Word ثم ارفع النسخة المعدّلة لإعادة الفحص.";
+    : "حسب فحص وَرَّاق لآخر نسخة من مخطوطتك، ما زالت بعض المتطلبات غير مستوفاة. صحّحها في مساحة التجهيز (تعديل الفقرات وتطبيق الاقتراحات) ثم عُد إلى هنا.";
 
   return (
     <main className="flex-1 px-6 pt-12 pb-16 lg:px-[72px]">
@@ -339,11 +342,11 @@ export function ReadyView({
             {isReady ? "عرض البحث" : "العودة إلى مساحة التجهيز"}
           </Link>
 
-          {!isReady && (
-            <Link href="/" className="text-sm underline underline-offset-4 hover:text-terracotta-text">
-              رفع نسخة معدّلة
-            </Link>
-          )}
+          <DownloadManuscriptButton
+            manuscriptId={manuscriptId}
+            label={isReady ? "تنزيل البحث الجاهز (Word)" : "تنزيل آخر نسخة (Word)"}
+            className="inline-flex h-12 items-center rounded-[3px] border border-ink px-5 text-[15px] font-semibold hover:bg-ink hover:text-paper disabled:cursor-wait disabled:opacity-60"
+          />
 
           <Link href="/journals" className="text-sm underline underline-offset-4 hover:text-terracotta-text">
             اختيار مجلة أخرى

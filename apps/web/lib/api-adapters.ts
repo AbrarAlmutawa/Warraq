@@ -3,6 +3,7 @@ import type {
   ApiJournalMatch,
   ApiJournalReadiness,
   ApiJournalSummary,
+  ApiManuscriptRecord,
   ApiMatchPreferencesRequest,
   ApiParsedManuscript,
   ApiReadinessSummary,
@@ -19,8 +20,10 @@ import type {
 import type { ArticleType, JournalPreferences, ManuscriptUnderstanding } from "@/lib/preferences/types";
 import type {
   CitationProposal,
+  ManuscriptVersion,
   ReadinessSummary,
   SuggestionsResult,
+  WorkspaceBaseStats,
   WorkspaceRequirement,
   WorkspaceSuggestion,
 } from "@/lib/workspace/types";
@@ -176,6 +179,7 @@ export function toWorkspaceSuggestion(suggestion: ApiSuggestion): WorkspaceSugge
     before: suggestion.before ?? null,
     after: suggestion.after ?? null,
     status: suggestion.status,
+    appliedRevision: suggestion.applied_revision ?? null,
   };
 }
 
@@ -252,5 +256,27 @@ export function toApiMatchPreferences(
     max_review_days: preferences.maxReviewDays,
     required_indexes: [...preferences.requiredIndexes],
     article_type: toApiArticleType(articleType),
+  };
+}
+/* ───────── Manuscript versions (editing) ───────── */
+
+export function toWorkspaceBaseStats(parsed: ApiParsedManuscript): WorkspaceBaseStats {
+  return {
+    wordCount: parsed.main_text_word_count,
+    referenceCount: parsed.reference_count,
+    figureCount: parsed.figure_count,
+    tableCount: parsed.table_count,
+  };
+}
+
+export function toManuscriptVersion(record: ApiManuscriptRecord): ManuscriptVersion {
+  return {
+    revision: record.revision ?? 0,
+    editable: record.editable ?? false,
+    history: (record.history ?? []).map((item) => ({
+      revision: item.revision,
+      description: item.description,
+      createdAt: item.created_at,
+    })),
   };
 }

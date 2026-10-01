@@ -20,6 +20,8 @@ type ManuscriptEditorProps = {
   revealRange: EditorRange | null;
   revealNonce: number;
   onSelectTarget: (target: SelectedItem) => void;
+  /* The line the cursor is on (1-based), so the shell can offer "edit this paragraph". */
+  onCursorLine?: (line: number) => void;
 };
 
 const THEME = "warraq-paper";
@@ -44,7 +46,7 @@ const RULER_COLOR: Record<DecorationKind, string> = {
 
 const EDITOR_OPTIONS: EditorProps["options"] = {
   readOnly: true,
-  readOnlyMessage: { value: "هذه معاينة للقراءة فقط. صحّح المخطوطة في ملف Word ثم ارفعها من جديد لإعادة الفحص." },
+  readOnlyMessage: { value: "لتعديل فقرة، ضع المؤشر عليها ثم اضغط «تعديل الفقرة» أعلى المحرر." },
   ariaLabel: "نص المخطوطة",
   wordWrap: "on",
   wrappingIndent: "none",
@@ -115,12 +117,14 @@ export function ManuscriptEditor({
   revealRange,
   revealNonce,
   onSelectTarget,
+  onCursorLine,
 }: ManuscriptEditorProps) {
   const editorRef = useRef<EditorInstance | null>(null);
   const monacoRef = useRef<MonacoApi | null>(null);
   const collectionRef = useRef<DecorationsCollection | null>(null);
   const decorationsRef = useRef(decorations);
   const onSelectRef = useRef(onSelectTarget);
+  const onCursorLineRef = useRef(onCursorLine);
   const revealRangeRef = useRef(revealRange);
   const [ready, setReady] = useState(false);
 
@@ -128,6 +132,7 @@ export function ManuscriptEditor({
   useEffect(() => {
     decorationsRef.current = decorations;
     onSelectRef.current = onSelectTarget;
+    onCursorLineRef.current = onCursorLine;
     revealRangeRef.current = revealRange;
   });
 
@@ -146,6 +151,8 @@ export function ManuscriptEditor({
       hits.sort((a, b) => rangeSize(a.range) - rangeSize(b.range));
       onSelectRef.current(hits[0].target);
     });
+
+    editor.onDidChangeCursorPosition((event) => onCursorLineRef.current?.(event.position.lineNumber));
 
     void document.fonts.ready.then(() => monaco.editor.remeasureFonts());
     setReady(true);

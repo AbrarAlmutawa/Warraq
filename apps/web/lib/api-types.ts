@@ -44,6 +44,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/manuscripts/{manuscript_id}/blocks/{block_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit Block
+         * @description Replace the text of one paragraph (block ids come from the current version's `parsed.blocks`).
+         */
+        patch: operations["edit_block_manuscripts__manuscript_id__blocks__block_id__patch"];
+        trace?: never;
+    };
+    "/manuscripts/{manuscript_id}/apply-suggestion/{suggestion_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Ai Suggestion
+         * @description Apply an AI suggestion the researcher accepted (shorter title or abstract,
+         *     highlights, a missing statement) and mark it accepted. Drafts can contain
+         *     [placeholders] the researcher still needs to fill in.
+         */
+        post: operations["apply_ai_suggestion_manuscripts__manuscript_id__apply_suggestion__suggestion_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/manuscripts/{manuscript_id}/references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace References
+         * @description Replace the reference list, e.g. with the result of POST /citations/convert after review.
+         */
+        post: operations["replace_references_manuscripts__manuscript_id__references_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/manuscripts/{manuscript_id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo Last Change
+         * @description Remove the latest change. Does nothing at the original upload (revision 0).
+         */
+        post: operations["undo_last_change_manuscripts__manuscript_id__undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/manuscripts/{manuscript_id}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset To Original
+         * @description Discard every change and go back to the original upload.
+         */
+        post: operations["reset_to_original_manuscripts__manuscript_id__reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/manuscripts/{manuscript_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download
+         * @description The manuscript as a Word file: the latest version by default, or ?revision=N.
+         */
+        get: operations["download_manuscripts__manuscript_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/match": {
         parameters: {
             query?: never;
@@ -372,6 +494,11 @@ export interface components {
             word_count: number;
             /** Paragraph Index */
             paragraph_index?: number | null;
+        };
+        /** BlockEdit */
+        BlockEdit: {
+            /** Text */
+            text: string;
         };
         /** Body_upload_manuscript_manuscripts_upload_post */
         Body_upload_manuscript_manuscripts_upload_post: {
@@ -717,6 +844,18 @@ export interface components {
              */
             uploaded_at?: string;
             parsed: components["schemas"]["ManuscriptParsedData"];
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
+            /**
+             * Editable
+             * @default false
+             */
+            editable: boolean;
+            /** History */
+            history?: components["schemas"]["RevisionInfo"][];
         };
         /**
          * ManuscriptUploadResponse
@@ -733,6 +872,11 @@ export interface components {
              * @default false
              */
             from_cache: boolean;
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
         };
         /** MatchPreferences */
         MatchPreferences: {
@@ -788,6 +932,13 @@ export interface components {
             meets_hard_requirements: boolean;
             /** Is Fully Ready */
             is_fully_ready: boolean;
+        };
+        /** ReferencesEdit */
+        ReferencesEdit: {
+            /** References */
+            references: string[];
+            /** Description */
+            description?: string | null;
         };
         /** RequirementResult */
         RequirementResult: {
@@ -875,6 +1026,21 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /**
+         * RevisionInfo
+         * @description One step in a manuscript's edit history. Revision 0 is the original upload.
+         */
+        RevisionInfo: {
+            /** Revision */
+            revision: number;
+            /** Description */
+            description: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** SectionInfo */
         SectionInfo: {
             /** Name */
@@ -911,6 +1077,8 @@ export interface components {
             kind?: string | null;
             /** Rule Id */
             rule_id?: string | null;
+            /** Applied Revision */
+            applied_revision?: number | null;
             /** Field */
             field: string;
             /** Label */
@@ -1070,6 +1238,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ManuscriptRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_block_manuscripts__manuscript_id__blocks__block_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                manuscript_id: string;
+                block_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlockEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManuscriptRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_ai_suggestion_manuscripts__manuscript_id__apply_suggestion__suggestion_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                manuscript_id: string;
+                suggestion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManuscriptRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_references_manuscripts__manuscript_id__references_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                manuscript_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferencesEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManuscriptRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_last_change_manuscripts__manuscript_id__undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                manuscript_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManuscriptRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_to_original_manuscripts__manuscript_id__reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                manuscript_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManuscriptRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_manuscripts__manuscript_id__download_get: {
+        parameters: {
+            query?: {
+                revision?: number | null;
+            };
+            header?: never;
+            path: {
+                manuscript_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
