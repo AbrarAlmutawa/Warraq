@@ -1,27 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { downloadManuscript } from "@/lib/api-client";
+import { downloadManuscript, type DownloadFormat } from "@/lib/api-client";
 import { describeError } from "@/lib/api-errors";
 
 type DownloadManuscriptButtonProps = {
   manuscriptId: string;
   className: string;
   label?: string;
+  format?: DownloadFormat;
 };
 
-/* Downloads the current version of the manuscript as a Word file (GET /manuscripts/{id}/download). */
+/* Downloads the current version of the manuscript (GET /manuscripts/{id}/download): Word or a LaTeX zip. */
 export function DownloadManuscriptButton({
   manuscriptId,
   className,
   label = "تنزيل ملف Word",
+  format = "docx",
 }: DownloadManuscriptButtonProps) {
   const [state, setState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
 
   const download = () => {
     if (state.busy) return;
     setState({ busy: true, error: null });
-    downloadManuscript(manuscriptId).then(
+    downloadManuscript(manuscriptId, format).then(
       ({ blob, filename }) => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
