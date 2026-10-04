@@ -7,14 +7,18 @@ import {
   JOURNEY_ACTION_SECONDARY,
   JourneyRecovery,
 } from "@/components/feedback/JourneyRecovery";
-import { WorkspaceShell, type WorkspaceBaseStats } from "@/components/workspace/WorkspaceShell";
+import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { toJournalSummary, toWorkspaceReadiness, toWorkspaceRequirement } from "@/lib/api-adapters";
-import { getManuscript, isNotFound, listJournals, validateManuscript } from "@/lib/api-client";
+import {
+  getManuscript,
+  isNotFound,
+  listJournals,
+  validateManuscript,
+  type ApiManuscriptRecord,
+} from "@/lib/api-client";
 import { describeError, type ErrorPresentation } from "@/lib/api-errors";
 import type { JournalSummary } from "@/lib/journals/types";
-import { buildBlockDocument } from "@/lib/workspace/block-document";
 import type { JournalReport } from "@/lib/workspace/switch-impact";
-import type { BlockDocument } from "@/lib/workspace/types";
 import { clearSession, readSession } from "@/lib/session";
 
 type LoadState =
@@ -31,11 +35,11 @@ type LoadState =
   | {
       status: "ready";
       manuscriptId: string;
-      manuscriptDocument: BlockDocument;
+      /* The current version: the latest saved revision, so earlier edits are always shown. */
+      record: ApiManuscriptRecord;
       journals: JournalSummary[];
       journalId: string;
       report: JournalReport;
-      baseStats: WorkspaceBaseStats;
     }
   | { status: "error"; error: ErrorPresentation; manuscriptGone: boolean };
 
@@ -107,25 +111,18 @@ export function WorkspaceFlow({ journalId }: WorkspaceFlowProps) {
           return;
         }
 
-        const parsed = manuscriptResult.value.parsed;
         const report = reportResult.value;
 
         apply({
           status: "ready",
           manuscriptId,
-          manuscriptDocument: buildBlockDocument(parsed),
+          record: manuscriptResult.value,
           journals,
           journalId,
           report: {
             requirements: (report.results ?? []).map(toWorkspaceRequirement),
             // The only readiness authority: the backend summary, unchanged.
             summary: toWorkspaceReadiness(report.summary),
-          },
-          baseStats: {
-            wordCount: parsed.main_text_word_count,
-            referenceCount: parsed.reference_count,
-            figureCount: parsed.figure_count,
-            tableCount: parsed.table_count,
           },
         });
       });
@@ -227,11 +224,10 @@ export function WorkspaceFlow({ journalId }: WorkspaceFlowProps) {
   return (
     <WorkspaceShell
       manuscriptId={load.manuscriptId}
-      manuscriptDocument={load.manuscriptDocument}
+      initialRecord={load.record}
       journals={load.journals}
       initialJournalId={load.journalId}
       initialReport={load.report}
-      baseStats={load.baseStats}
     />
   );
 }

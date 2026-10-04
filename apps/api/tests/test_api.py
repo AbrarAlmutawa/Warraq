@@ -58,13 +58,14 @@ def upload(client, content: bytes, name="paper.docx"):
 
 
 def test_upload_saves_and_caches(client):
-    first = upload(client, docx_bytes())
+    content = docx_bytes()  # build once: python-docx stamps the save time into the file
+    first = upload(client, content)
     assert first.status_code == 200
     body = first.json()
     assert body["manuscript_id"] and body["from_cache"] is False
     assert body["parsed"]["reference_count"] == 1
 
-    again = upload(client, docx_bytes())
+    again = upload(client, content)
     assert again.json()["from_cache"] is True
     assert again.json()["manuscript_id"] == body["manuscript_id"]
 

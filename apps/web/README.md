@@ -96,6 +96,26 @@ Before opening a pull request: `npx tsc --noEmit`, `npm run lint` and `npm run b
 
 ---
 
+## Editing in the workspace
+
+The workspace edits the manuscript only through explicit actions, each saved on the backend as a
+new revision of the researcher's Word file (see [`docs/editing.md`](../../docs/editing.md)):
+
+- **Type directly in the editor:** each line is a paragraph; Enter adds a new paragraph (a new line
+  after the last reference becomes a reference). Typing is saved automatically about a second after
+  the researcher stops, and when the editor loses focus (`PUT /manuscripts/{id}/text` with the
+  editor lines and the revision they were based on). Highlights are hidden while there is unsaved
+  typing, because line positions no longer match the checked version.
+- **Apply an AI suggestion:** "تطبيق على المخطوطة" on a suggestion card (`POST .../apply-suggestion/{id}`).
+- **Apply a citation conversion:** in the conversion dialog (`POST .../references`).
+- **Undo / back to the original / download Word or LaTeX:** the toolbar above the editor (`/undo`, `/reset`, `/download?format=docx|latex`). The ready screen offers both downloads too.
+
+Every response is the new `ManuscriptRecord`: the editor is rebuilt from its `parsed.blocks`
+(block ids can change), results for the old version are dropped, and `/validate` runs again.
+Because revisions live on the backend, leaving and reopening the workspace keeps every edit.
+The "التقديم" button always opens the ready page: continuing before every requirement is met is the
+researcher's choice, and the ready page lists what is still open.
+
 ## Demo manuscript
 
 `public/demo/warraq-demo-manuscript.docx` powers the "جرّب ببحث تجريبي" (try a demo paper) action.

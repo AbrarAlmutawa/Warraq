@@ -30,6 +30,7 @@ type LoadState =
   | { status: "loading" }
   | {
       status: "ready";
+      manuscriptId: string;
       journal: JournalSummary;
       manuscript: ReadyManuscript;
       requirements: WorkspaceRequirement[];
@@ -119,6 +120,7 @@ export function ReadyFlow({ journalId }: ReadyFlowProps) {
 
         apply({
           status: "ready",
+          manuscriptId,
           journal: toJournalSummary(journalView),
           manuscript: {
             title: parsed.title.trim(),
@@ -245,6 +247,7 @@ export function ReadyFlow({ journalId }: ReadyFlowProps) {
     <>
       {header}
       <ReadyView
+        manuscriptId={load.manuscriptId}
         journal={load.journal}
         manuscript={load.manuscript}
         requirements={load.requirements}

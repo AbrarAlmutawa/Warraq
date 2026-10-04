@@ -32,7 +32,9 @@ pytest
 | Method | Path | What it does |
 | --- | --- | --- |
 | POST | `/manuscripts/upload` | Parse a DOCX, save it, return `manuscript_id` (same file again = cached) |
-| GET | `/manuscripts/{manuscript_id}` | The saved parse |
+| GET | `/manuscripts/{manuscript_id}` | The current version (latest revision) |
+| PATCH · POST | `/manuscripts/{id}/blocks/{block_id}` · `/apply-suggestion/{id}` · `/references` · `/undo` · `/reset` | Edit the manuscript (see `docs/editing.md`) |
+| GET | `/manuscripts/{id}/download` | The current version as Word, or `?format=latex` for a LaTeX zip |
 | GET | `/journals` | All journals as summary cards |
 | GET | `/journals/review-queue` | Journals the agent flagged for human review |
 | GET | `/journals/{journal_id}` | One journal's full requirements |

@@ -18,6 +18,14 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class RevisionInfo(BaseModel):
+    """One step in a manuscript's edit history. Revision 0 is the original upload."""
+
+    revision: int
+    description: str
+    created_at: datetime
+
+
 class ManuscriptRecord(BaseModel):
     """What the backend stores for every uploaded manuscript."""
 
@@ -27,7 +35,13 @@ class ManuscriptRecord(BaseModel):
     # SHA-256 of the uploaded file. Re-uploading the same file reuses the parse.
     content_hash: str
     uploaded_at: datetime = Field(default_factory=_now)
+    # Always the CURRENT version: the original upload, or the latest edited revision.
     parsed: ManuscriptParsedData
+    # Added in S4 v3 (editing). All optional so older clients are unaffected.
+    revision: int = 0
+    # False for manuscripts uploaded before editing existed (their file was not kept).
+    editable: bool = False
+    history: list[RevisionInfo] = Field(default_factory=list)
 
 
 class ManuscriptUploadResponse(BaseModel):
@@ -38,3 +52,5 @@ class ManuscriptUploadResponse(BaseModel):
     parsed: ManuscriptParsedData
     # True when this exact file was uploaded before and the cached parse was reused.
     from_cache: bool = False
+    # Current revision. A re-upload of a file that was already edited keeps its edits.
+    revision: int = 0

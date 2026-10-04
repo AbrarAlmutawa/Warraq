@@ -1,7 +1,8 @@
 type WorkspaceToastProps = {
   text: string;
   detail?: string;
-  onUndo: () => void;
+  /* Omitted when the action cannot be undone from the toast. */
+  onUndo?: () => void;
   onClose: () => void;
 };
 
@@ -17,13 +18,15 @@ export function WorkspaceToast({ text, detail, onUndo, onClose }: WorkspaceToast
           <span className="text-[13.5px] font-semibold">{text}</span>
           {detail && <span className="text-xs text-stone">{detail}</span>}
         </div>
-        <button
-          type="button"
-          onClick={onUndo}
-          className="h-8 rounded-[3px] border border-stone/60 px-3 text-[13px] hover:border-paper"
-        >
-          تراجع
-        </button>
+        {onUndo && (
+          <button
+            type="button"
+            onClick={onUndo}
+            className="h-8 rounded-[3px] border border-stone/60 px-3 text-[13px] hover:border-paper"
+          >
+            تراجع
+          </button>
+        )}
         <button
           type="button"
           onClick={onClose}

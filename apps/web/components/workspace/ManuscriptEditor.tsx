@@ -15,11 +15,20 @@ type MonacoApi = Parameters<OnMount>[1];
 type DecorationsCollection = ReturnType<EditorInstance["createDecorationsCollection"]>;
 
 type ManuscriptEditorProps = {
+  /* The saved text of the current version (one paragraph per line, blank lines between). */
   value: string;
+  /* The researcher has typed changes that are not saved yet: never overwrite them. */
+  dirty: boolean;
+  /* False when the manuscript can't be edited (uploaded before editing existed). */
+  editable: boolean;
   decorations: WorkspaceDecoration[];
   revealRange: EditorRange | null;
   revealNonce: number;
   onSelectTarget: (target: SelectedItem) => void;
+  /* Every change the researcher types (the whole editor text). */
+  onChangeText: (text: string) => void;
+  /* The editor lost focus: a good moment to save. */
+  onBlur: () => void;
 };
 
 const THEME = "warraq-paper";
@@ -43,9 +52,8 @@ const RULER_COLOR: Record<DecorationKind, string> = {
 };
 
 const EDITOR_OPTIONS: EditorProps["options"] = {
-  readOnly: true,
-  readOnlyMessage: { value: "هذه معاينة للقراءة فقط. صحّح المخطوطة في ملف Word ثم ارفعها من جديد لإعادة الفحص." },
-  ariaLabel: "نص المخطوطة",
+  readOnlyMessage: { value: "التعديل غير متاح لهذه النسخة. ارفع الملف نفسه مرة أخرى لتفعيله." },
+  ariaLabel: "نص المخطوطة (قابل للتعديل)",
   wordWrap: "on",
   wrappingIndent: "none",
   minimap: { enabled: false },
@@ -71,6 +79,26 @@ const EDITOR_OPTIONS: EditorProps["options"] = {
   unicodeHighlight: { ambiguousCharacters: false, invisibleCharacters: false, nonBasicASCII: false },
   automaticLayout: true,
 };
+
+/* Index of the paragraph (non-empty line) the cursor is on, so it can be restored after the text is reloaded. */
+function paragraphIndexAt(lines: string[], lineNumber: number): number {
+  let index = -1;
+  for (let i = 0; i < Math.min(lineNumber, lines.length); i += 1) {
+    if (lines[i].trim()) index += 1;
+  }
+  return Math.max(index, 0);
+}
+
+function lineOfParagraph(lines: string[], paragraph: number): number {
+  let index = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (lines[i].trim()) {
+      index += 1;
+      if (index === paragraph) return i + 1;
+    }
+  }
+  return Math.max(lines.length, 1);
+}
 
 function containsPosition(range: EditorRange, line: number, column: number): boolean {
   if (line < range.startLineNumber || line > range.endLineNumber) return false;
@@ -111,16 +139,24 @@ const defineTheme: BeforeMount = (monaco) => {
 
 export function ManuscriptEditor({
   value,
+  dirty,
+  editable,
   decorations,
   revealRange,
   revealNonce,
   onSelectTarget,
+  onChangeText,
+  onBlur,
 }: ManuscriptEditorProps) {
   const editorRef = useRef<EditorInstance | null>(null);
   const monacoRef = useRef<MonacoApi | null>(null);
   const collectionRef = useRef<DecorationsCollection | null>(null);
   const decorationsRef = useRef(decorations);
   const onSelectRef = useRef(onSelectTarget);
+  const onChangeTextRef = useRef(onChangeText);
+  const onBlurRef = useRef(onBlur);
+  // True while the editor text is replaced from `value` (not typed by the researcher).
+  const applyingValueRef = useRef(false);
   const revealRangeRef = useRef(revealRange);
   const [ready, setReady] = useState(false);
 
@@ -128,6 +164,8 @@ export function ManuscriptEditor({
   useEffect(() => {
     decorationsRef.current = decorations;
     onSelectRef.current = onSelectTarget;
+    onChangeTextRef.current = onChangeText;
+    onBlurRef.current = onBlur;
     revealRangeRef.current = revealRange;
   });
 
@@ -147,9 +185,38 @@ export function ManuscriptEditor({
       onSelectRef.current(hits[0].target);
     });
 
+    editor.onDidChangeModelContent(() => {
+      if (!applyingValueRef.current) onChangeTextRef.current(editor.getValue());
+    });
+    editor.onDidBlurEditorText(() => onBlurRef.current());
+
     void document.fonts.ready.then(() => monaco.editor.remeasureFonts());
     setReady(true);
   };
+
+  // A new saved version arrived: show it, unless the researcher has unsaved typing.
+  // The cursor stays on the same paragraph even if blank lines around it changed.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!ready || !editor || dirty) return;
+    const current = editor.getValue();
+    if (current === value) return;
+    const position = editor.getPosition();
+    const scrollTop = editor.getScrollTop();
+    const paragraph = position ? paragraphIndexAt(current.split(/\r?\n/), position.lineNumber) : 0;
+    applyingValueRef.current = true;
+    editor.setValue(value);
+    applyingValueRef.current = false;
+    if (position && editor.hasTextFocus()) {
+      const line = lineOfParagraph(value.split(/\r?\n/), paragraph);
+      editor.setPosition({ lineNumber: line, column: position.column });
+    }
+    editor.setScrollTop(scrollTop);
+  }, [value, dirty, ready]);
+
+  useEffect(() => {
+    editorRef.current?.updateOptions({ readOnly: !editable });
+  }, [editable, ready]);
 
   // Decorations: replaced as a whole on every validation/selection change
   useEffect(() => {
@@ -188,7 +255,7 @@ export function ManuscriptEditor({
       <Editor
         height="100%"
         language="plaintext"
-        value={value}
+        defaultValue={value}
         theme={THEME}
         beforeMount={defineTheme}
         onMount={handleMount}

@@ -35,6 +35,8 @@ export type ApiJournalListMatchItem = Schemas["JournalListMatchItem"];
 export type ApiJournalListExcludedEntry = Schemas["JournalListExcludedEntry"];
 export type ApiJournalListMatchResponse = Schemas["JournalListMatchResponse"];
 
+export type ApiRevisionInfo = Schemas["RevisionInfo"];
+
 /*
  * Request body for `preferences` in POST /match.
  *
@@ -66,6 +68,8 @@ const MATCH_TIMEOUT_MS = 180_000;
 /* AI calls: the backend LLM timeout is 60 s, plus validation and batching. */
 const SUGGESTIONS_TIMEOUT_MS = 120_000;
 const CITATIONS_TIMEOUT_MS = 180_000;
+/* Editing re-parses the edited DOCX on the backend. */
+const EDIT_TIMEOUT_MS = 60_000;
 
 export type ApiErrorKind =
   /* The backend could not be reached (not running, wrong URL, CORS, offline). */
@@ -102,7 +106,7 @@ export function isNotFound(error: unknown): boolean {
 }
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   json?: unknown;
   formData?: FormData;
   timeoutMs?: number;
@@ -255,7 +259,8 @@ export function getSuggestions(
   });
 }
 
-/* PATCH /suggestions/{id} — records the researcher's decision only; the manuscript is never edited. */
+/* PATCH /suggestions/{id} — records a decision only (reject, or accept advice such as scope fit).
+ * Accepting a suggestion that changes the text goes through applySuggestion instead. */
 export function decideSuggestion(suggestionId: string, status: SuggestionDecision): Promise<ApiSuggestion> {
   return request<ApiSuggestion>(`/suggestions/${id(suggestionId)}`, {
     method: "PATCH",
@@ -263,7 +268,7 @@ export function decideSuggestion(suggestionId: string, status: SuggestionDecisio
   });
 }
 
-/* POST /citations/convert — a proposal only; nothing is applied to the stored manuscript. */
+/* POST /citations/convert — a proposal only; replaceReferences applies it after review. */
 export function convertCitations(manuscriptId: string, journalId: string): Promise<ApiCitationConversion> {
   return request<ApiCitationConversion>("/citations/convert", {
     method: "POST",
@@ -307,4 +312,110 @@ export function matchJournalList(
     json: { manuscript_id: manuscriptId, preferences },
     timeoutMs: MATCH_TIMEOUT_MS,
   });
+}
+
+/* ───────── Editing (docs/editing.md) ─────────
+ * Every edit is applied to the researcher's real DOCX and saved as a new revision on the
+ * backend. Each call returns the updated ManuscriptRecord (the new current version), whose
+ * parsed.blocks replace the editor text; block ids can change after an edit. */
+
+/* PUT /manuscripts/{id}/text — save what the researcher typed in the editor (one paragraph per
+ * line). The backend writes only the differences into the Word file; unchanged text = no new
+ * revision. base_revision protects against overwriting a newer version (409). */
+export function saveManuscriptText(
+  manuscriptId: string,
+  paragraphs: string[],
+  baseRevision: number,
+): Promise<ApiManuscriptRecord> {
+  return request<ApiManuscriptRecord>(`/manuscripts/${id(manuscriptId)}/text`, {
+    method: "PUT",
+    json: { paragraphs, base_revision: baseRevision },
+    timeoutMs: EDIT_TIMEOUT_MS,
+  });
+}
+
+/* POST /manuscripts/{id}/apply-suggestion/{suggestion_id} — apply an accepted AI suggestion. */
+export function applySuggestion(manuscriptId: string, suggestionId: string): Promise<ApiManuscriptRecord> {
+  return request<ApiManuscriptRecord>(`/manuscripts/${id(manuscriptId)}/apply-suggestion/${id(suggestionId)}`, {
+    method: "POST",
+    timeoutMs: EDIT_TIMEOUT_MS,
+  });
+}
+
+/* POST /manuscripts/{id}/references — replace the reference list (a reviewed conversion). */
+export function replaceReferences(
+  manuscriptId: string,
+  references: string[],
+  description: string,
+): Promise<ApiManuscriptRecord> {
+  return request<ApiManuscriptRecord>(`/manuscripts/${id(manuscriptId)}/references`, {
+    method: "POST",
+    json: { references, description },
+    timeoutMs: EDIT_TIMEOUT_MS,
+  });
+}
+
+/* POST /manuscripts/{id}/undo — remove the latest change (no-op at the original upload). */
+export function undoLastEdit(manuscriptId: string): Promise<ApiManuscriptRecord> {
+  return request<ApiManuscriptRecord>(`/manuscripts/${id(manuscriptId)}/undo`, {
+    method: "POST",
+    timeoutMs: EDIT_TIMEOUT_MS,
+  });
+}
+
+/* POST /manuscripts/{id}/reset — discard every change and return to the original upload. */
+export function resetManuscript(manuscriptId: string): Promise<ApiManuscriptRecord> {
+  return request<ApiManuscriptRecord>(`/manuscripts/${id(manuscriptId)}/reset`, {
+    method: "POST",
+    timeoutMs: EDIT_TIMEOUT_MS,
+  });
+}
+
+export type ManuscriptDownload = { blob: Blob; filename: string };
+/* "docx" = the Word file; "latex" = a zip with main.tex, the figures and a README. */
+export type DownloadFormat = "docx" | "latex";
+
+function filenameFrom(disposition: string | null, fallback: string): string {
+  if (!disposition) return fallback;
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded[1]);
+    } catch {
+      /* fall through to the plain name */
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(disposition);
+  return plain ? plain[1] : fallback;
+}
+
+/* GET /manuscripts/{id}/download?format= — the current version as a file (a binary, not JSON). */
+export async function downloadManuscript(
+  manuscriptId: string,
+  format: DownloadFormat = "docx",
+): Promise<ManuscriptDownload> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), EDIT_TIMEOUT_MS);
+  try {
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE_URL}/manuscripts/${id(manuscriptId)}/download?format=${format}`, {
+        signal: controller.signal,
+        cache: "no-store",
+      });
+    } catch {
+      throw controller.signal.aborted
+        ? new ApiError("timeout", 0, `No response from ${API_BASE_URL} within ${EDIT_TIMEOUT_MS / 1000}s.`)
+        : new ApiError("network", 0, `Could not reach the Warraq API at ${API_BASE_URL}.`);
+    }
+    if (!response.ok) {
+      const data = parseJson(await response.text().catch(() => ""));
+      throw new ApiError("http", response.status, detailOf(data) ?? `Request failed with HTTP ${response.status}.`);
+    }
+    const blob = await response.blob();
+    const fallback = format === "latex" ? "manuscript-latex.zip" : "manuscript.docx";
+    return { blob, filename: filenameFrom(response.headers.get("Content-Disposition"), fallback) };
+  } finally {
+    clearTimeout(timer);
+  }
 }

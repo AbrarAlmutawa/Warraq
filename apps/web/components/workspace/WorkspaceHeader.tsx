@@ -58,29 +58,27 @@ export function WorkspaceHeader({ journal, summary, readyHref, onSwitchJournal }
 
       <ReadinessCounts summary={summary} />
 
-      {summary.isFullyReady ? (
-        <Link
-          href={readyHref}
-          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[3px] bg-ink px-5 text-sm font-bold text-paper hover:bg-ink/90"
-        >
-          التقديم
-          <span aria-hidden="true">←</span>
-        </Link>
-      ) : (
-        <button
-          type="button"
-          disabled
-          aria-describedby="readiness-status"
-          title={
-            summary.meetsHardRequirements
-              ? "راجع البنود غير المؤكدة قبل التقديم"
-              : "لا يمكن التقديم قبل معالجة المتطلبات الإلزامية"
-          }
-          className="h-10 shrink-0 cursor-not-allowed rounded-[3px] border border-rule-strong px-5 text-sm font-bold text-muted"
-        >
-          التقديم
-        </button>
-      )}
+      {/* Always available: submitting before every requirement is met is the researcher's choice.
+          The ready page shows what is still open. */}
+      <Link
+        href={readyHref}
+        aria-describedby="readiness-status"
+        title={
+          summary.isFullyReady
+            ? undefined
+            : summary.meetsHardRequirements
+              ? "بعض البنود بحاجة إلى مراجعة، ويمكنك المتابعة إلى التقديم"
+              : "لم تُستوفَ كل المتطلبات الإلزامية بعد، ويمكنك المتابعة إلى التقديم إن أردت"
+        }
+        className={
+          summary.isFullyReady
+            ? "inline-flex h-10 shrink-0 items-center gap-2 rounded-[3px] bg-ink px-5 text-sm font-bold text-paper hover:bg-ink/90"
+            : "inline-flex h-10 shrink-0 items-center gap-2 rounded-[3px] border border-ink px-5 text-sm font-bold text-ink hover:bg-ink hover:text-paper"
+        }
+      >
+        التقديم
+        <span aria-hidden="true">←</span>
+      </Link>
     </div>
   );
 }

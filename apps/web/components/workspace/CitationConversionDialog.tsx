@@ -17,15 +17,32 @@ type CitationConversionDialogProps = {
   entry: ConversionEntry | undefined;
   onRetry: () => void;
   onClose: () => void;
+  /* The manuscript can be edited (false for manuscripts uploaded before editing existed). */
+  canApply: boolean;
+  /* POST .../references with this proposal is in flight. */
+  applying: boolean;
+  /* Arabic message of the last failed apply, or null. */
+  applyError: string | null;
+  onApply: (proposal: CitationProposal) => void;
 };
 
 const upper = (style: string) => style.toUpperCase();
 
 /*
- * A read-only proposal: the manuscript's references are never changed, the backend stores no
- * decision about it, and readiness stays the same until a revised DOCX is uploaded.
+ * A proposal the researcher reviews first. Nothing changes until they press "apply": the
+ * converted list then replaces the references in their Word file as a new revision, and the
+ * checklist is re-run. References the AI could not convert are kept, unchanged, at the end.
  */
-export function CitationConversionDialog({ open, entry, onRetry, onClose }: CitationConversionDialogProps) {
+export function CitationConversionDialog({
+  open,
+  entry,
+  onRetry,
+  onClose,
+  canApply,
+  applying,
+  applyError,
+  onApply,
+}: CitationConversionDialogProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
 
   const proposal = entry?.status === "ready" ? entry.proposal : null;
@@ -50,8 +67,8 @@ export function CitationConversionDialog({ open, entry, onRetry, onClose }: Cita
     >
       <div className="flex flex-col gap-5 text-sm">
         <p className="border border-dashed border-subtle bg-paper-raised px-4 py-3 text-[13px] leading-relaxed text-body">
-          <span className="font-bold text-ink">هذا اقتراح فقط: </span>
-          لم تتغيّر المراجع في مخطوطتك، ولن تتغيّر جاهزيتك حتى تطبّق التحويل في ملف Word وترفع النسخة المعدّلة.
+          <span className="font-bold text-ink">راجِع الاقتراح أولًا: </span>
+          لن تتغيّر مراجعك حتى تضغط «تطبيق على المخطوطة»، وعندها تُستبدل في ملف Word ويُعاد فحص المتطلبات. يمكنك التراجع بعدها.
         </p>
 
         {(!entry || entry.status === "loading") && (
@@ -131,7 +148,7 @@ export function CitationConversionDialog({ open, entry, onRetry, onClose }: Cita
                     <span dir="ltr" className="font-latin">
                       {proposal.failedIndexes.join(", ")}
                     </span>
-                    )؛ بقيت كما هي في الاقتراح.
+                    ). إذا طبّقت التحويل، تبقى هذه المراجع بصيغتها الأصلية في آخر القائمة لتعدّلها بنفسك.
                   </p>
                 )}
 
@@ -183,13 +200,24 @@ export function CitationConversionDialog({ open, entry, onRetry, onClose }: Cita
           <span className="flex-1" />
           {copyState === "copied" && <span className="text-[13px] text-mint-text">✓ نُسخت القائمة</span>}
           {copyState === "failed" && <span className="text-[13px] text-terracotta-text">✕ تعذّر النسخ</span>}
+          {applyError && <span className="text-[13px] font-semibold text-terracotta-text">✕ {applyError}</span>}
           {hasList && (
             <button
               type="button"
               onClick={copyList}
-              className="h-11 rounded-[3px] bg-ink px-5 text-sm font-bold text-paper hover:bg-ink/90"
+              className="h-11 rounded-[3px] border border-rule-strong px-4 text-sm hover:border-ink"
             >
               نسخ القائمة المحوّلة
+            </button>
+          )}
+          {hasList && canApply && (
+            <button
+              type="button"
+              onClick={() => proposal && onApply(proposal)}
+              disabled={applying}
+              className="h-11 rounded-[3px] bg-ink px-5 text-sm font-bold text-paper hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {applying ? "نطبّق التحويل…" : "تطبيق على المخطوطة"}
             </button>
           )}
           {((entry?.status === "error" && entry.error.retryable) ||

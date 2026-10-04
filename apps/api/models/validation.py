@@ -82,6 +82,8 @@ class Suggestion(BaseModel):
     kind: str | None = None
     # The checklist rule this suggestion helps fix, if any (e.g. "title_length").
     rule_id: str | None = None
+    # Manuscript revision created when this suggestion was applied (S4 v3), else None.
+    applied_revision: int | None = None
     field: str
     label: str
     title: str

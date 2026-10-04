@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, type KeyboardEvent } from "react";
 import { ReadinessPanelSummary } from "@/components/workspace/ReadinessSummary";
 import { RequirementCard } from "@/components/workspace/RequirementCard";
@@ -43,6 +42,11 @@ type RequirementsPanelProps = {
   canGoToSuggestion: (suggestion: WorkspaceSuggestion) => boolean;
   onGoToSuggestion: (suggestion: WorkspaceSuggestion) => void;
   onDecideSuggestion: (suggestion: WorkspaceSuggestion, status: SuggestionStatus) => void;
+  /* Editing: which suggestions can be applied, which one is being applied, and the action. */
+  canApplySuggestion: (suggestion: WorkspaceSuggestion) => boolean;
+  applyingSuggestionId: string | null;
+  editBusy: boolean;
+  onApplySuggestion: (suggestion: WorkspaceSuggestion) => void;
 };
 
 function tabClass(active: boolean): string {
@@ -67,6 +71,10 @@ export function RequirementsPanel({
   canGoToSuggestion,
   onGoToSuggestion,
   onDecideSuggestion,
+  canApplySuggestion,
+  applyingSuggestionId,
+  editBusy,
+  onApplySuggestion,
 }: RequirementsPanelProps) {
   const [showPassed, setShowPassed] = useState(false);
 
@@ -79,7 +87,13 @@ export function RequirementsPanel({
       ? suggestions.result.suggestions
       : null;
   const pendingCount = listed ? listed.filter((suggestion) => suggestion.status === "pending").length : null;
-  const anyAccepted = listed ? listed.some((suggestion) => suggestion.status === "accepted") : false;
+  // Accepted before editing existed (or with apply unavailable): the text was not changed.
+  const anyAcceptedUnapplied = listed
+    ? listed.some(
+        (suggestion) =>
+          suggestion.status === "accepted" && suggestion.appliedRevision === null && canApplySuggestion(suggestion),
+      )
+    : false;
 
   const isSelected = (type: SelectedItem["type"], id: string) => selected?.type === type && selected.id === id;
 
@@ -244,8 +258,8 @@ export function RequirementsPanel({
       >
         <div className="flex flex-col gap-3">
           <p className="text-[12.5px] leading-relaxed text-body">
-            اقتراحات اختيارية من وَرَّاق لتحسين البحث، وليست من متطلبات المجلة. لا تؤثر في جاهزية التقديم، ولا يُطبَّق أي
-            منها على بحثك: قبولك يسجّل قرارك فقط.
+            اقتراحات اختيارية من وَرَّاق، وليست من متطلبات المجلة. لا يتغيّر بحثك إلا إذا ضغطت «تطبيق على المخطوطة»،
+            وعندها يُحفظ التعديل في نسخة جديدة ويُعاد فحص المتطلبات. يمكنك التراجع في أي وقت.
           </p>
 
           {(suggestions.status === "idle" || suggestions.status === "loading") && (
@@ -306,14 +320,11 @@ export function RequirementsPanel({
             </div>
           )}
 
-          {listed && anyAccepted && (
+          {listed && anyAcceptedUnapplied && (
             <div className="flex flex-col gap-1 border border-mint/40 bg-mint/10 px-4 py-3 text-[13px]">
               <p className="leading-relaxed">
-                قبلتَ اقتراحًا أو أكثر. لم يُعدَّل بحثك: طبّق التعديلات في ملف Word ثم ارفع النسخة المعدّلة لإعادة الفحص.
+                قبلتَ اقتراحًا أو أكثر دون تطبيقه على النص. اضغط «تراجع» على الاقتراح ثم «تطبيق على المخطوطة» ليُعدَّل بحثك.
               </p>
-              <Link href="/" className="self-start font-semibold underline underline-offset-4 hover:text-terracotta-text">
-                رفع نسخة معدّلة
-              </Link>
             </div>
           )}
 
@@ -331,8 +342,12 @@ export function RequirementsPanel({
                 canGoToText={canGoToSuggestion(suggestion)}
                 saving={decision?.saving ?? false}
                 error={decision?.error ?? null}
+                applicable={canApplySuggestion(suggestion)}
+                applying={applyingSuggestionId === suggestion.id}
+                editBusy={editBusy}
                 onGoToText={() => onGoToSuggestion(suggestion)}
                 onDecide={(status) => onDecideSuggestion(suggestion, status)}
+                onApply={() => onApplySuggestion(suggestion)}
               />
             );
           })}
