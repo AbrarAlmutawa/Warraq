@@ -70,6 +70,7 @@ export function JournalResultRow({
   const wantsOpenAccess = preferences.openAccess !== "any";
   const indexes = indexLabels(match.indexes);
   const identityLine = [match.shortName, match.publisher].filter(Boolean).join(" · ");
+  const listMetadata = Object.entries(match.listMetadata ?? {}).slice(0, 4);
 
   return (
     <li
@@ -140,6 +141,18 @@ export function JournalResultRow({
             </span>
             بعض المتطلبات بحاجة إلى مراجعة
           </p>
+        )}
+        {listMetadata.length > 0 && (
+          <dl className="grid gap-1 text-[12.5px] text-muted sm:grid-cols-2">
+            {listMetadata.map(([key, value]) => (
+              <div key={key} className="min-w-0">
+                <dt className="inline font-semibold text-ink">{key}: </dt>
+                <dd className="inline" dir="auto">
+                  {value}
+                </dd>
+              </div>
+            ))}
+          </dl>
         )}
       </div>
 

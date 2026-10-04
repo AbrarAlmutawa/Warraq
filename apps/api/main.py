@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import get_settings
 from db import get_store
 from db.seed import seed_if_empty
-from routers import citations, journals, manuscripts, match, suggestions, validate
+from routers import citations, journal_lists, journals, manuscripts, match, suggestions, validate
 
 settings = get_settings()
 
@@ -35,6 +35,7 @@ app.add_middleware(
 
 app.include_router(manuscripts.router)
 app.include_router(match.router)
+app.include_router(journal_lists.router)
 app.include_router(journals.router)
 app.include_router(validate.router)
 app.include_router(suggestions.router)

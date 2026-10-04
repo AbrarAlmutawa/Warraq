@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from models.journal import JournalRequirementSpec, ReviewQueueItem
+from models.journal_list import JournalList, JournalListEntry
 from models.manuscript import ManuscriptRecord
 from models.validation import Suggestion
 
@@ -32,6 +33,20 @@ CREATE TABLE IF NOT EXISTS review_queue (
     status     TEXT NOT NULL,
     data       TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS journal_lists (
+    journal_list_id TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    data            TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS journal_list_entries (
+    entry_id        TEXT PRIMARY KEY,
+    journal_list_id TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    matched_journal_id TEXT,
+    data            TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS journal_list_entries_list ON journal_list_entries (journal_list_id);
+CREATE INDEX IF NOT EXISTS journal_list_entries_match ON journal_list_entries (matched_journal_id);
 CREATE TABLE IF NOT EXISTS suggestions (
     suggestion_id TEXT PRIMARY KEY,
     manuscript_id TEXT NOT NULL,
@@ -131,6 +146,73 @@ class Store:
     def count_journals(self) -> int:
         with self._tx() as c:
             return c.execute("SELECT COUNT(*) FROM journals").fetchone()[0]
+
+    # ---- custom journal lists ----
+
+    def save_journal_list(self, journal_list: JournalList, entries: list[JournalListEntry]) -> None:
+        with self._tx() as c:
+            c.execute(
+                "INSERT OR REPLACE INTO journal_lists VALUES (?, ?, ?)",
+                (journal_list.journal_list_id, journal_list.name, journal_list.model_dump_json()),
+            )
+            c.execute(
+                "DELETE FROM journal_list_entries WHERE journal_list_id = ?",
+                (journal_list.journal_list_id,),
+            )
+            c.executemany(
+                "INSERT OR REPLACE INTO journal_list_entries VALUES (?, ?, ?, ?, ?)",
+                [
+                    (
+                        entry.entry_id,
+                        entry.journal_list_id,
+                        entry.resolution_status,
+                        entry.matched_journal_id,
+                        entry.model_dump_json(),
+                    )
+                    for entry in entries
+                ],
+            )
+
+    def list_journal_lists(self) -> list[JournalList]:
+        with self._tx() as c:
+            rows = c.execute(
+                "SELECT data FROM journal_lists ORDER BY name COLLATE NOCASE"
+            ).fetchall()
+        return [JournalList.model_validate_json(r[0]) for r in rows]
+
+    def get_journal_list(self, journal_list_id: str) -> JournalList | None:
+        with self._tx() as c:
+            row = c.execute(
+                "SELECT data FROM journal_lists WHERE journal_list_id = ?",
+                (journal_list_id,),
+            ).fetchone()
+        return JournalList.model_validate_json(row[0]) if row else None
+
+    def list_journal_list_entries(self, journal_list_id: str) -> list[JournalListEntry]:
+        with self._tx() as c:
+            rows = c.execute(
+                "SELECT data FROM journal_list_entries WHERE journal_list_id = ? ORDER BY rowid",
+                (journal_list_id,),
+            ).fetchall()
+        return [JournalListEntry.model_validate_json(r[0]) for r in rows]
+
+    def delete_journal_list(self, journal_list_id: str) -> bool:
+        with self._tx() as c:
+            exists = c.execute(
+                "SELECT 1 FROM journal_lists WHERE journal_list_id = ?",
+                (journal_list_id,),
+            ).fetchone()
+            if not exists:
+                return False
+            c.execute(
+                "DELETE FROM journal_list_entries WHERE journal_list_id = ?",
+                (journal_list_id,),
+            )
+            c.execute(
+                "DELETE FROM journal_lists WHERE journal_list_id = ?",
+                (journal_list_id,),
+            )
+            return True
 
     # ---- human review queue ----
 

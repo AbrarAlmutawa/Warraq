@@ -1,6 +1,7 @@
 import type {
   ApiCitationConversion,
   ApiJournalMatch,
+  ApiJournalListMatchItem,
   ApiJournalReadiness,
   ApiJournalSummary,
   ApiMatchPreferencesRequest,
@@ -102,6 +103,13 @@ export function toJournalMatch(view: ApiJournalMatch): JournalMatch {
     scopeFit: view.scope_fit,
     similarityScore: view.similarity_score,
     matchedTopics: [...(view.matched_topics ?? [])],
+  };
+}
+
+export function toJournalListMatch(item: ApiJournalListMatchItem): JournalMatch {
+  return {
+    ...toJournalMatch(item.match),
+    listMetadata: { ...(item.entry.metadata ?? {}) },
   };
 }
 

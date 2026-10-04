@@ -50,6 +50,8 @@ export type JournalMatch = JournalSummary & {
   similarityScore: number;
   /** Manuscript topics that also appear in the journal's stated scope (English, as published) */
   matchedTopics: string[];
+  /** Metadata from a custom/institutional journal-list row, when matching within a supplied list. */
+  listMetadata?: Record<string, string>;
 };
 
 /*
