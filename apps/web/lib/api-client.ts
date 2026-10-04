@@ -26,6 +26,14 @@ export type ApiJournalReadiness = Schemas["JournalReadiness"];
 export type ApiSuggestionsResponse = Schemas["SuggestionsResponse"];
 export type ApiSuggestion = Schemas["Suggestion"];
 export type ApiCitationConversion = Schemas["CitationConversion"];
+export type ApiJournalList = Schemas["JournalList"];
+export type ApiJournalListEntry = Schemas["JournalListEntry"];
+export type ApiJournalListCreateRequest = Schemas["JournalListCreateRequest"];
+export type ApiJournalListDetail = Schemas["JournalListDetail"];
+export type ApiJournalListUploadResponse = Schemas["JournalListUploadResponse"];
+export type ApiJournalListMatchItem = Schemas["JournalListMatchItem"];
+export type ApiJournalListExcludedEntry = Schemas["JournalListExcludedEntry"];
+export type ApiJournalListMatchResponse = Schemas["JournalListMatchResponse"];
 
 /*
  * Request body for `preferences` in POST /match.
@@ -94,7 +102,7 @@ export function isNotFound(error: unknown): boolean {
 }
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   json?: unknown;
   formData?: FormData;
   timeoutMs?: number;
@@ -261,5 +269,42 @@ export function convertCitations(manuscriptId: string, journalId: string): Promi
     method: "POST",
     json: { manuscript_id: manuscriptId, journal_id: journalId },
     timeoutMs: CITATIONS_TIMEOUT_MS,
+  });
+}
+
+export function uploadJournalList(input: {
+  file: File;
+  name?: string;
+  description?: string;
+  institution?: string;
+}): Promise<ApiJournalListUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", input.file, input.file.name);
+  if (input.name) formData.append("name", input.name);
+  if (input.description) formData.append("description", input.description);
+  if (input.institution) formData.append("institution", input.institution);
+  return request<ApiJournalListUploadResponse>("/journal-lists/upload", {
+    method: "POST",
+    formData,
+    timeoutMs: UPLOAD_TIMEOUT_MS,
+  });
+}
+
+export function createJournalList(input: ApiJournalListCreateRequest): Promise<ApiJournalListDetail> {
+  return request<ApiJournalListDetail>("/journal-lists", {
+    method: "POST",
+    json: input,
+  });
+}
+
+export function matchJournalList(
+  journalListId: string,
+  manuscriptId: string,
+  preferences: ApiMatchPreferencesRequest,
+): Promise<ApiJournalListMatchResponse> {
+  return request<ApiJournalListMatchResponse>(`/journal-lists/${id(journalListId)}/match`, {
+    method: "POST",
+    json: { manuscript_id: manuscriptId, preferences },
+    timeoutMs: MATCH_TIMEOUT_MS,
   });
 }

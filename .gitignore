@@ -21,3 +21,6 @@ Thumbs.db
 apps/api/services/analyzer/samples/*.docx
 # Local SQLite database
 apps/api/data/
+
+# Local test artifacts
+apps/api/.tmp/

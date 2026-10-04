@@ -1,4 +1,5 @@
 import { BrandIntro } from "@/components/brand/BrandIntro";
+import { ApprovedJournalListCard } from "@/components/journals/ApprovedJournalListCard";
 import { JourneyTimeline } from "@/components/layout/JourneyTimeline";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { DemoManuscriptButton } from "@/components/upload/DemoManuscriptButton";
@@ -38,6 +39,8 @@ export default function HomePage() {
         {/* Upload */}
         <section aria-label="رفع البحث" className="flex flex-1 flex-col gap-[18px] pb-10 lg:pb-0">
           <UploadDropzone />
+
+          <ApprovedJournalListCard />
 
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-body">
             <p>

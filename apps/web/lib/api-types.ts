@@ -64,6 +64,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/journal-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Journal Lists */
+        get: operations["list_journal_lists_journal_lists_get"];
+        put?: never;
+        /** Create Journal List */
+        post: operations["create_journal_list_journal_lists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/journal-lists/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Journal List */
+        post: operations["upload_journal_list_journal_lists_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/journal-lists/{journal_list_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Journal List */
+        get: operations["get_journal_list_journal_lists__journal_list_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Journal List */
+        delete: operations["delete_journal_list_journal_lists__journal_list_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/journal-lists/{journal_list_id}/journals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Journal List Journals */
+        get: operations["get_journal_list_journals_journal_lists__journal_list_id__journals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/journal-lists/{journal_list_id}/match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Match Journal List */
+        post: operations["match_journal_list_journal_lists__journal_list_id__match_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/journals": {
         parameters: {
             query?: never;
@@ -373,6 +460,17 @@ export interface components {
             /** Paragraph Index */
             paragraph_index?: number | null;
         };
+        /** Body_upload_journal_list_journal_lists_upload_post */
+        Body_upload_journal_list_journal_lists_upload_post: {
+            /** File */
+            file: string;
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Institution */
+            institution?: string | null;
+        };
         /** Body_upload_manuscript_manuscripts_upload_post */
         Body_upload_manuscript_manuscripts_upload_post: {
             /** File */
@@ -474,6 +572,159 @@ export interface components {
             required_statements?: string[];
             /** Required Sections */
             required_sections?: string[];
+        };
+        /** JournalList */
+        JournalList: {
+            /** Journal List Id */
+            journal_list_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Institution */
+            institution?: string | null;
+            /** Source Filename */
+            source_filename?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+            /**
+             * Journal Count
+             * @default 0
+             */
+            journal_count: number;
+            /**
+             * Resolved Count
+             * @default 0
+             */
+            resolved_count: number;
+            /**
+             * Unresolved Count
+             * @default 0
+             */
+            unresolved_count: number;
+            /**
+             * Duplicate Count
+             * @default 0
+             */
+            duplicate_count: number;
+            /**
+             * Invalid Count
+             * @default 0
+             */
+            invalid_count: number;
+            /**
+             * Ambiguous Count
+             * @default 0
+             */
+            ambiguous_count: number;
+        };
+        /** JournalListCreateRequest */
+        JournalListCreateRequest: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Institution */
+            institution?: string | null;
+            /** Journals */
+            journals: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** JournalListDetail */
+        JournalListDetail: {
+            journal_list: components["schemas"]["JournalList"];
+            /** Entries */
+            entries: components["schemas"]["JournalListEntry"][];
+        };
+        /** JournalListEntry */
+        JournalListEntry: {
+            /** Entry Id */
+            entry_id: string;
+            /** Journal List Id */
+            journal_list_id: string;
+            /**
+             * Original Name
+             * @default
+             */
+            original_name: string;
+            /**
+             * Normalized Name
+             * @default
+             */
+            normalized_name: string;
+            /** Issn */
+            issn?: string | null;
+            /** Eissn */
+            eissn?: string | null;
+            /** Publisher */
+            publisher?: string | null;
+            /** Matched Journal Id */
+            matched_journal_id?: string | null;
+            /**
+             * Resolution Status
+             * @enum {string}
+             */
+            resolution_status: "resolved" | "unresolved" | "duplicate" | "ambiguous" | "invalid";
+            /** Resolution Message */
+            resolution_message?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: string;
+            };
+        };
+        /** JournalListMatchItem */
+        JournalListMatchItem: {
+            match: components["schemas"]["JournalMatchView"];
+            entry: components["schemas"]["JournalListEntry"];
+        };
+        /** JournalListExcludedEntry */
+        JournalListExcludedEntry: {
+            entry: components["schemas"]["JournalListEntry"];
+            /** Matched Journal Id */
+            matched_journal_id: string;
+            /** Journal Name */
+            journal_name: string;
+            /** Reasons */
+            reasons: string[];
+        };
+        /** JournalListMatchRequest */
+        JournalListMatchRequest: {
+            /** Manuscript Id */
+            manuscript_id: string;
+            /** Preferences */
+            preferences?: {
+                [key: string]: unknown;
+            };
+        };
+        /** JournalListMatchResponse */
+        JournalListMatchResponse: {
+            journal_list: components["schemas"]["JournalList"];
+            /** Provided Count */
+            provided_count: number;
+            /** Resolved Count */
+            resolved_count: number;
+            /** Unresolved Count */
+            unresolved_count: number;
+            /** Eligible Count */
+            eligible_count: number;
+            /** Matches */
+            matches: components["schemas"]["JournalListMatchItem"][];
+            /** Excluded Entries */
+            excluded_entries?: components["schemas"]["JournalListExcludedEntry"][];
+            /** Unresolved Entries */
+            unresolved_entries?: components["schemas"]["JournalListEntry"][];
+        };
+        /** JournalListUploadResponse */
+        JournalListUploadResponse: {
+            journal_list: components["schemas"]["JournalList"];
+            /** Entries */
+            entries: components["schemas"]["JournalListEntry"][];
+            /** Parse Warnings */
+            parse_warnings?: string[];
         };
         /**
          * JournalMatchView
@@ -1103,6 +1354,218 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JournalMatchView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_journal_lists_journal_lists_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalList"][];
+                };
+            };
+        };
+    };
+    create_journal_list_journal_lists_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JournalListCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalListDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_journal_list_journal_lists_upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_journal_list_journal_lists_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalListUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_journal_list_journal_lists__journal_list_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                journal_list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalListDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_journal_list_journal_lists__journal_list_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                journal_list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_journal_list_journals_journal_lists__journal_list_id__journals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                journal_list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalListDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    match_journal_list_journal_lists__journal_list_id__match_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                journal_list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JournalListMatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalListMatchResponse"];
                 };
             };
             /** @description Validation Error */

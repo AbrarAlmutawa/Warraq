@@ -15,6 +15,7 @@ import type { ArticleType, JournalIndex, JournalPreferences, OpenAccessPreferenc
  */
 
 const STORAGE_KEY = "warraq:session:v1";
+const APPROVED_JOURNAL_LIST_KEY = "warraq:approved-journal-list:v1";
 
 export type SessionFile = {
   name: string;
@@ -24,6 +25,17 @@ export type SessionFile = {
 export type LastMatch = {
   /* Ranked journal ids from the last successful POST /match for this manuscript. */
   journalIds: string[];
+};
+
+export type ApprovedJournalListSelection = {
+  journalListId: string;
+  name: string;
+  journalCount: number;
+  resolvedCount: number;
+  unresolvedCount: number;
+  duplicateCount: number;
+  invalidCount: number;
+  ambiguousCount: number;
 };
 
 export type WarraqSession = {
@@ -36,9 +48,12 @@ export type WarraqSession = {
   preferences: JournalPreferences | null;
   articleType: ArticleType | null;
   lastMatch: LastMatch | null;
+  approvedJournalList: ApprovedJournalListSelection | null;
 };
 
-export type SessionPatch = Partial<Pick<WarraqSession, "preferences" | "articleType" | "lastMatch">>;
+export type SessionPatch = Partial<
+  Pick<WarraqSession, "preferences" | "articleType" | "lastMatch" | "approvedJournalList">
+>;
 
 /* ───────── Storage access (never throws) ───────── */
 
@@ -104,6 +119,25 @@ function isLastMatchOrNull(value: unknown): value is LastMatch | null {
   return value === null || (isRecord(value) && isStringArray(value.journalIds));
 }
 
+function isApprovedJournalListSelection(value: unknown): value is ApprovedJournalListSelection {
+  return (
+    isRecord(value) &&
+    typeof value.journalListId === "string" &&
+    value.journalListId.length > 0 &&
+    typeof value.name === "string" &&
+    typeof value.journalCount === "number" &&
+    typeof value.resolvedCount === "number" &&
+    typeof value.unresolvedCount === "number" &&
+    typeof value.duplicateCount === "number" &&
+    typeof value.invalidCount === "number" &&
+    typeof value.ambiguousCount === "number"
+  );
+}
+
+function isApprovedJournalListSelectionOrNull(value: unknown): value is ApprovedJournalListSelection | null {
+  return value === null || isApprovedJournalListSelection(value);
+}
+
 function isSession(value: unknown): value is WarraqSession {
   return (
     isRecord(value) &&
@@ -114,7 +148,8 @@ function isSession(value: unknown): value is WarraqSession {
     typeof value.isDemoManuscript === "boolean" &&
     (value.preferences === null || isPreferences(value.preferences)) &&
     isArticleTypeOrNull(value.articleType) &&
-    isLastMatchOrNull(value.lastMatch)
+    isLastMatchOrNull(value.lastMatch) &&
+    (value.approvedJournalList === undefined || isApprovedJournalListSelectionOrNull(value.approvedJournalList))
   );
 }
 
@@ -132,9 +167,59 @@ export function readSession(): WarraqSession | null {
   if (!raw) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
-    return isSession(parsed) ? parsed : null;
+    return isSession(parsed) ? { ...parsed, approvedJournalList: parsed.approvedJournalList ?? null } : null;
   } catch {
     return null;
+  }
+}
+
+export function readApprovedJournalListSelection(): ApprovedJournalListSelection | null {
+  const current = readSession();
+  if (current?.approvedJournalList) return current.approvedJournalList;
+
+  const store = storage();
+  if (!store) return null;
+  let raw: string | null;
+  try {
+    raw = store.getItem(APPROVED_JOURNAL_LIST_KEY);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isApprovedJournalListSelection(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveApprovedJournalListSelection(selection: ApprovedJournalListSelection): void {
+  const current = readSession();
+  if (current) {
+    void updateSession({ approvedJournalList: selection });
+    return;
+  }
+  const store = storage();
+  if (!store) return;
+  try {
+    store.setItem(APPROVED_JOURNAL_LIST_KEY, JSON.stringify(selection));
+  } catch {
+    // The journey still works without the optional approved-list preference.
+  }
+}
+
+export function clearApprovedJournalListSelection(): void {
+  const current = readSession();
+  if (current) {
+    void updateSession({ approvedJournalList: null });
+  }
+  const store = storage();
+  if (!store) return;
+  try {
+    store.removeItem(APPROVED_JOURNAL_LIST_KEY);
+  } catch {
+    // Ignore storage failures; the stored value is optional.
   }
 }
 
@@ -148,6 +233,7 @@ export function startSession(input: {
   file: SessionFile;
   isDemoManuscript: boolean;
 }): WarraqSession | null {
+  const approvedJournalList = readApprovedJournalListSelection();
   const session: WarraqSession = {
     version: 1,
     manuscriptId: input.manuscriptId,
@@ -156,6 +242,7 @@ export function startSession(input: {
     preferences: null,
     articleType: null,
     lastMatch: null,
+    approvedJournalList,
   };
   return write(session) ? session : null;
 }
@@ -172,6 +259,8 @@ export function updateSession(patch: SessionPatch): WarraqSession | null {
     ...current,
     ...patch,
     lastMatch: patch.lastMatch === undefined ? current.lastMatch : patch.lastMatch && { journalIds: [...patch.lastMatch.journalIds] },
+    approvedJournalList:
+      patch.approvedJournalList === undefined ? current.approvedJournalList : patch.approvedJournalList,
   };
   return write(next) ? next : null;
 }
