@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LocateIcon } from "@/components/ui/icons";
 import { placeholdersIn } from "@/lib/workspace/editing";
 import type { PresentedText } from "@/lib/workspace/requirement-labels";
 import { suggestionLabel, suggestionTitle } from "@/lib/workspace/suggestion-labels";
@@ -85,14 +86,17 @@ export function SuggestionCard({
   return (
     <article
       id={`sug-card-${suggestion.id}`}
-      className={`rounded-[4px] border-2 border-dotted border-olive/60 bg-paper-raised p-4 ${
-        selected ? "outline-2 outline-offset-2 outline-ink" : ""
+      className={`border-s-[3px] border-dotted border-olive py-3 ps-4 pe-2 ${
+        selected ? "bg-paper-raised outline-2 outline-offset-2 outline-ink" : ""
       }`}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-[3px] bg-olive/15 px-2 py-0.5 text-[11px] font-bold text-olive-text">
+        <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-olive-text">
           <ShaddaIcon />
           اقتراح من وَرَّاق
+        </span>
+        <span aria-hidden="true" className="text-subtle">
+          ·
         </span>
         <span className="text-xs text-muted">
           <Segments parts={[label]} />
@@ -179,8 +183,9 @@ export function SuggestionCard({
               <button
                 type="button"
                 onClick={onGoToText}
-                className="h-9 px-1 text-[13px] underline underline-offset-4 hover:text-terracotta-text"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[3px] px-1.5 text-[12.5px] text-muted hover:bg-ink/5 hover:text-ink"
               >
+                <LocateIcon className="text-[14px]" />
                 انتقل إلى النص
               </button>
             )}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowForwardIcon, SwapIcon } from "@/components/ui/icons";
 import { ReadinessCounts } from "@/components/workspace/ReadinessSummary";
 import type { JournalSummary } from "@/lib/journals/types";
 import type { ReadinessSummary } from "@/lib/workspace/types";
@@ -35,12 +36,14 @@ export function WorkspaceHeader({ journal, summary, readyHref, onSwitchJournal }
         </span>
       </div>
 
+      {/* Secondary: changing the journal re-checks the same manuscript, nothing is lost. */}
       {onSwitchJournal && (
         <button
           type="button"
           onClick={onSwitchJournal}
-          className="h-10 shrink-0 rounded-[3px] bg-terracotta px-4 text-sm font-bold text-ink hover:bg-terracotta/90"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[3px] border border-rule-strong px-3 text-[13px] font-semibold text-ink hover:border-ink"
         >
+          <SwapIcon className="text-[14px]" />
           تغيير المجلة
         </button>
       )}
@@ -57,9 +60,10 @@ export function WorkspaceHeader({ journal, summary, readyHref, onSwitchJournal }
       <div className="hidden flex-1 lg:block" />
 
       <ReadinessCounts summary={summary} />
+      <span aria-hidden="true" className="hidden h-7 w-px bg-rule lg:block" />
 
-      {/* Always available: submitting before every requirement is met is the researcher's choice.
-          The ready page shows what is still open. */}
+      {/* Always available and always the primary action: submitting before every requirement is
+          met is the researcher's choice. The ready page shows what is still open. */}
       <Link
         href={readyHref}
         aria-describedby="readiness-status"
@@ -70,14 +74,10 @@ export function WorkspaceHeader({ journal, summary, readyHref, onSwitchJournal }
               ? "بعض البنود بحاجة إلى مراجعة، ويمكنك المتابعة إلى التقديم"
               : "لم تُستوفَ كل المتطلبات الإلزامية بعد، ويمكنك المتابعة إلى التقديم إن أردت"
         }
-        className={
-          summary.isFullyReady
-            ? "inline-flex h-10 shrink-0 items-center gap-2 rounded-[3px] bg-ink px-5 text-sm font-bold text-paper hover:bg-ink/90"
-            : "inline-flex h-10 shrink-0 items-center gap-2 rounded-[3px] border border-ink px-5 text-sm font-bold text-ink hover:bg-ink hover:text-paper"
-        }
+        className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[3px] bg-ink px-5 text-sm font-bold text-paper hover:bg-ink/90"
       >
         التقديم
-        <span aria-hidden="true">←</span>
+        <ArrowForwardIcon className="text-[16px]" />
       </Link>
     </div>
   );

@@ -35,7 +35,6 @@ import {
   compareReadiness,
   convertCitations,
   decideSuggestion,
-  downloadManuscript,
   getSuggestions,
   replaceReferences,
   resetManuscript,
@@ -43,7 +42,6 @@ import {
   undoLastEdit,
   validateManuscript,
   type ApiManuscriptRecord,
-  type DownloadFormat,
 } from "@/lib/api-client";
 import { describeError, type ErrorPresentation } from "@/lib/api-errors";
 import type { JournalSummary } from "@/lib/journals/types";
@@ -110,16 +108,6 @@ type WorkspaceShellProps = {
   initialReport: JournalReport;
 };
 
-function saveFile(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 function has<T>(record: Record<string, T>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(record, key);
@@ -157,7 +145,6 @@ export function WorkspaceShell({
   const [editState, setEditState] = useState<EditState>({ busy: null, error: null });
   const [applyingSuggestionId, setApplyingSuggestionId] = useState<string | null>(null);
   const [revalidating, setRevalidating] = useState(false);
-  const [downloading, setDownloading] = useState<DownloadFormat | null>(null);
   /* Direct editing: text typed in the editor that is not saved yet (null = in sync). */
   const [draft, setDraft] = useState<string | null>(null);
   const [textStatus, setTextStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -547,21 +534,6 @@ export function WorkspaceShell({
     );
   };
 
-  const download = (format: DownloadFormat) => {
-    if (downloading) return;
-    setDownloading(format);
-    downloadManuscript(manuscriptId, format).then(
-      ({ blob, filename }) => {
-        setDownloading(null);
-        saveFile(blob, filename);
-      },
-      (error: unknown) => {
-        setDownloading(null);
-        setEditState({ busy: null, error: `تعذّر تنزيل الملف: ${describeError(error).title}` });
-      },
-    );
-  };
-
   // ── Switch journal: backend requests (only for journals without a result yet)
   const requestOutlooks = (ids: string[]) => {
     const missing = ids.filter(
@@ -713,30 +685,14 @@ export function WorkspaceShell({
         />
 
         <main className="flex h-[70dvh] min-w-0 flex-1 flex-col lg:h-auto">
-          <div className="flex h-10 shrink-0 items-center gap-5 overflow-x-auto border-b border-rule px-4 text-xs whitespace-nowrap text-muted">
-            <span className="font-semibold text-ink">المخطوطة</span>
-            <span>
-              <span className="font-bold text-terracotta-text">✕</span> متطلب المجلة{" "}
-              <span className="bg-terracotta/15 underline decoration-terracotta decoration-2 underline-offset-4">خط متصل</span>
-            </span>
-            <span>
-              <span className="font-bold">◐</span> بحاجة إلى مراجعة{" "}
-              <span className="underline decoration-subtle decoration-dashed underline-offset-4">خط متقطع</span>
-            </span>
-            <span>
-              <span className="font-bold text-mint-text">✓</span> مستوفى - بلا تظليل
-            </span>
-          </div>
           <ManuscriptToolbar
             version={version}
             busyLabel={editState.busy}
             revalidating={revalidating}
             error={editState.error}
             textState={draft !== null ? "dirty" : textStatus}
-            downloading={downloading}
             onUndo={undoEdit}
             onReset={resetToOriginal}
-            onDownload={download}
             onDismissError={() => setEditState((state) => ({ ...state, error: null }))}
           />
           <div className="min-h-0 flex-1 bg-paper-raised">

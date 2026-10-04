@@ -1,7 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ManuscriptPreview } from "@/components/ready/ManuscriptPreview";
+import { CodeIcon, DownloadIcon } from "@/components/ui/icons";
 import { DownloadManuscriptButton } from "@/components/workspace/DownloadManuscriptButton";
 import { FIGURES, TABLES, arabicCount } from "@/lib/analysis/stages";
+import type { ApiParsedManuscript } from "@/lib/api-client";
 import { CONFIDENCE, formatCheckedDate } from "@/lib/journals/format";
 import type { JournalSummary } from "@/lib/journals/types";
 import { requirementLabel, requirementMessage } from "@/lib/workspace/requirement-labels";
@@ -27,7 +30,17 @@ type ReadyViewProps = {
   isDemoManuscript: boolean;
   /* Name of the file uploaded in this browser session; null when unknown. */
   fileName: string | null;
+  /* The latest saved revision (0 = the original upload) and its parse, for "عرض البحث". */
+  revision: number;
+  parsed: ApiParsedManuscript;
 };
+/* Final-output actions ("نسخة البحث"). */
+const OUTPUT_SECONDARY =
+  "inline-flex h-11 items-center gap-2 rounded-[3px] border border-ink px-5 text-[15px] font-semibold text-ink hover:bg-ink hover:text-paper disabled:cursor-wait disabled:opacity-60";
+const OUTPUT_PRIMARY =
+  "inline-flex h-11 items-center gap-2 rounded-[3px] bg-ink px-5 text-[15px] font-bold text-paper hover:bg-ink/90 disabled:cursor-wait disabled:opacity-60";
+const OUTPUT_TERTIARY =
+  "inline-flex h-11 items-center gap-2 rounded-[3px] border border-rule-strong px-5 text-[15px] text-ink hover:border-ink disabled:cursor-wait disabled:opacity-60";
 
 /* Demo journals are fictional: their extraction metadata is not a real verification. */
 const DEMO_NOT_APPLICABLE = "لا ينطبق — قيم تجريبية لم تُستخرج من دليل مؤلفين حقيقي ولم يُتحقق منها.";
@@ -108,6 +121,8 @@ export function ReadyView({
   summary,
   isDemoManuscript,
   fileName,
+  revision,
+  parsed,
 }: ReadyViewProps) {
   const isReady = summary.isFullyReady;
   const remaining = requirements.filter((requirement) => requirement.status !== "passed");
@@ -138,18 +153,22 @@ export function ReadyView({
             <div role="status" className="mt-7 max-w-[720px] border-s-[3px] border-mint bg-paper-raised px-5 py-4">
               <p className="text-[13px] font-bold text-mint-text">✓ اكتملت رحلة التجهيز</p>
               <p className="mt-2 text-[15px] leading-[1.85] text-body">
-                {fileName ? (
+                  {revision > 0 ? (
                   <>
-                    الملف الذي رفعته{" "}
+                    هذه أحدث نسخة محفوظة من مخطوطتك (النسخة {revision})، وتشمل التعديلات التي أجريتها في مساحة
+                    التجهيز، وهي النسخة التي فحصها وَرَّاق لهذه المجلة.
+                  </>
+                ) : fileName ? (
+                  <>
+                    لم تُجرِ تعديلات على مخطوطتك؛ الملف الذي رفعته{" "}
                     <span dir="ltr" className="font-latin font-semibold text-ink break-all">
                       {fileName}
                     </span>{" "}
-                    هو نفسه النسخة التي فحصها وَرَّاق لهذه المجلة.
+                    هو النسخة التي فحصها وَرَّاق لهذه المجلة.
                   </>
                 ) : (
-                  "ملف Word الذي رفعته هو نفسه النسخة التي فحصها وَرَّاق لهذه المجلة."
-                )}{" "}
-                لم يُعدّل وَرَّاق الملف، ولم يُنشئ نسخة جديدة منه.
+                  "لم تُجرِ تعديلات على مخطوطتك؛ ملف Word الذي رفعته هو النسخة التي فحصها وَرَّاق لهذه المجلة."
+                )}
               </p>
               <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">
                 {journal.sourceIsDemo
@@ -204,9 +223,48 @@ export function ReadyView({
             </div>
           </dl>
 
-          <p className="mt-4 max-w-[720px] text-[13px] leading-relaxed text-muted">
+                    <p className="mt-4 max-w-[720px] text-[13px] leading-relaxed text-muted">
             الجاهزية تعني توافق المخطوطة مع متطلبات التجهيز التي تم التحقق منها، ولا تعني ضمان قبولها للنشر.
           </p>
+        </section>
+
+        {/* Final output: always available, whatever the readiness result. */}
+        <section aria-labelledby="output-heading" className="mt-12 border-t border-ink pt-6">
+          <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-5">
+            <div className="max-w-[560px]">
+              <h2 id="output-heading" className="text-xl font-bold">
+                نسخة البحث
+              </h2>
+              <p className="mt-2 text-[14.5px] leading-relaxed text-body">
+                {revision > 0
+                  ? `أحدث نسخة محفوظة من مخطوطتك (النسخة ${revision})، وتشمل التعديلات التي أجريتها في مساحة التجهيز.`
+                  : "النسخة الأصلية من مخطوطتك كما رفعتها، دون تعديلات."}
+              </p>
+              {!isReady && (
+                <p className="mt-1 text-[13px] leading-relaxed text-muted">
+                  لم تكتمل الجاهزية بعد، ويمكنك مع ذلك عرض هذه النسخة أو تنزيلها الآن.
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <ManuscriptPreview parsed={parsed} revision={revision} className={OUTPUT_SECONDARY} />
+              <DownloadManuscriptButton
+                manuscriptId={manuscriptId}
+                label="تنزيل ملف Word"
+                icon={<DownloadIcon className="text-[17px]" />}
+                className={OUTPUT_PRIMARY}
+              />
+              <DownloadManuscriptButton
+                manuscriptId={manuscriptId}
+                format="latex"
+                label="تنزيل LaTeX"
+                title="ملف مضغوط فيه main.tex والصور، جاهز لـ Overleaf"
+                icon={<CodeIcon className="text-[17px]" />}
+                className={OUTPUT_TERTIARY}
+              />
+            </div>
+          </div>
         </section>
 
         <div className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,1fr)_420px]">
@@ -337,22 +395,10 @@ export function ReadyView({
         <div className="mt-14 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-rule pt-6">
           <Link
             href={workspaceHref}
-            className="inline-flex h-12 items-center rounded-[3px] bg-ink px-6 text-[15px] font-bold text-paper hover:bg-ink/90"
+            className="inline-flex h-11 items-center rounded-[3px] border border-rule-strong px-5 text-[15px] font-semibold hover:border-ink"
           >
-            {isReady ? "عرض البحث" : "العودة إلى مساحة التجهيز"}
+            العودة إلى مساحة التجهيز
           </Link>
-
-          <DownloadManuscriptButton
-            manuscriptId={manuscriptId}
-            label={isReady ? "تنزيل البحث الجاهز (Word)" : "تنزيل آخر نسخة (Word)"}
-            className="inline-flex h-12 items-center rounded-[3px] border border-ink px-5 text-[15px] font-semibold hover:bg-ink hover:text-paper disabled:cursor-wait disabled:opacity-60"
-          />
-          <DownloadManuscriptButton
-            manuscriptId={manuscriptId}
-            format="latex"
-            label="تنزيل LaTeX"
-            className="inline-flex h-12 items-center rounded-[3px] border border-rule-strong px-5 text-[15px] hover:border-ink disabled:cursor-wait disabled:opacity-60"
-          />
 
           <Link href="/journals" className="text-sm underline underline-offset-4 hover:text-terracotta-text">
             اختيار مجلة أخرى

@@ -1,6 +1,6 @@
 "use client";
 
-import type { DownloadFormat } from "@/lib/api-client";
+import { RestoreIcon, UndoIcon } from "@/components/ui/icons";
 import { revisionLabel } from "@/lib/workspace/editing";
 import type { ManuscriptVersion } from "@/lib/workspace/types";
 
@@ -14,21 +14,38 @@ type ManuscriptToolbarProps = {
   error: string | null;
   /* Direct typing in the editor: unsaved ("dirty"), being saved, or just saved. */
   textState: "idle" | "dirty" | "saving" | "saved";
-  /* The format being downloaded, or null. */
-  downloading: DownloadFormat | null;
   onUndo: () => void;
   onReset: () => void;
-  onDownload: (format: DownloadFormat) => void;
   onDismissError: () => void;
 };
 
 const BUTTON =
-  "h-8 shrink-0 rounded-[3px] border border-rule-strong px-3 text-[12.5px] hover:border-ink disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-rule-strong";
+  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[3px] border border-rule-strong px-2.5 text-[12.5px] text-ink hover:border-ink disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-rule-strong";
+
+/* How the highlights in the text read (was a separate strip above the toolbar). */
+function HighlightLegend() {
+  return (
+    <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-muted">
+      <span className="whitespace-nowrap">
+        <span className="font-bold text-terracotta-text">✕</span> متطلب المجلة{" "}
+        <span className="bg-terracotta/15 underline decoration-terracotta decoration-2 underline-offset-4">خط متصل</span>
+      </span>
+      <span className="whitespace-nowrap">
+        <span className="font-bold">◐</span> بحاجة إلى مراجعة{" "}
+        <span className="underline decoration-subtle decoration-dashed underline-offset-4">خط متقطع</span>
+      </span>
+      <span className="whitespace-nowrap">
+        <span className="font-bold text-mint-text">✓</span> مستوفى - بلا تظليل
+      </span>
+    </span>
+  );
+}
 
 /*
- * The manuscript's current version and the actions on it. Every change is saved on the
+ * The manuscript's current version and the editing actions on it. Every change is saved on the
  * backend as a new revision of the researcher's Word file (docs/editing.md), so it survives
- * leaving the page; undo and start-over are backend operations too.
+ * leaving the page; undo and start-over are backend operations too. Final output (Word / LaTeX)
+ * lives on the submission page.
  */
 export function ManuscriptToolbar({
   version,
@@ -36,10 +53,8 @@ export function ManuscriptToolbar({
   revalidating,
   error,
   textState,
-  downloading,
   onUndo,
   onReset,
-  onDownload,
   onDismissError,
 }: ManuscriptToolbarProps) {
   const latest = version.history.at(-1);
@@ -59,9 +74,15 @@ export function ManuscriptToolbar({
 
   if (!version.editable) {
     return (
-      <div className="flex min-h-10 shrink-0 items-center gap-3 border-b border-rule bg-paper px-4 py-1.5 text-[12.5px] text-body">
-        <span className="font-bold text-ink">التعديل غير متاح لهذه النسخة.</span>
-        <span>رُفعت قبل إتاحة التعديل؛ ارفع الملف نفسه مرة أخرى لتفعيله دون أن تفقد شيئًا.</span>
+      <div className="flex shrink-0 flex-col border-b border-rule bg-paper">
+        <div className="flex min-h-11 items-center gap-3 px-4 py-1.5 text-[12.5px] text-body">
+          <span className="font-bold text-ink">التعديل غير متاح لهذه النسخة.</span>
+          <span>رُفعت قبل إتاحة التعديل؛ ارفع الملف نفسه مرة أخرى لتفعيله دون أن تفقد شيئًا.</span>
+        </div>
+        <div className="flex min-h-8 items-center border-t border-rule px-4 py-1">
+          <span className="flex-1" />
+          <HighlightLegend />
+        </div>
       </div>
     );
   }
@@ -69,12 +90,16 @@ export function ManuscriptToolbar({
   return (
     <div className="flex shrink-0 flex-col border-b border-rule bg-paper">
       <div className="flex min-h-11 items-center gap-2 overflow-x-auto px-4 py-1.5 whitespace-nowrap">
+        <span className="text-[13px] font-semibold text-ink">المخطوطة</span>
+        <span aria-hidden="true" className="text-subtle">
+          ·
+        </span>
         <span className="text-[12.5px] text-muted">
           {version.revision === 0 ? (
-            <span className="font-semibold text-ink">النسخة الأصلية</span>
+            "النسخة الأصلية"
           ) : (
             <>
-              <span className="font-semibold text-ink">النسخة {version.revision}</span>
+              النسخة {version.revision}
               {latest && <span> · آخر تعديل: {revisionLabel(latest)}</span>}
             </>
           )}
@@ -83,31 +108,16 @@ export function ManuscriptToolbar({
         <span className="flex-1" />
 
         <button type="button" onClick={onUndo} disabled={busy || version.revision === 0} className={BUTTON}>
+          <UndoIcon className="text-[14px]" />
           تراجع
         </button>
         <button type="button" onClick={onReset} disabled={busy || version.revision === 0} className={BUTTON}>
+          <RestoreIcon className="text-[14px]" />
           العودة إلى الأصل
-        </button>
-        <button
-          type="button"
-          onClick={() => onDownload("latex")}
-          disabled={downloading !== null}
-          title="ملف مضغوط فيه main.tex والصور، جاهز لـ Overleaf"
-          className={BUTTON}
-        >
-          {downloading === "latex" ? "نجهّز الملف…" : "تنزيل LaTeX"}
-        </button>
-        <button
-          type="button"
-          onClick={() => onDownload("docx")}
-          disabled={downloading !== null}
-          className="h-8 shrink-0 rounded-[3px] bg-ink px-3 text-[12.5px] font-semibold text-paper hover:bg-ink/90 disabled:cursor-wait disabled:opacity-60"
-        >
-          {downloading === "docx" ? "نجهّز الملف…" : "تنزيل ملف Word"}
         </button>
       </div>
 
-      <div className="flex min-h-8 items-center gap-3 border-t border-rule px-4 py-1.5 text-[12.5px]">
+      <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1 border-t border-rule px-4 py-1.5 text-[12.5px]">
         {status ? (
           <p role="status" className="text-muted">
             {status}
@@ -124,12 +134,13 @@ export function ManuscriptToolbar({
             <p role="alert" className="font-semibold text-terracotta-text">
               ✕ {error}
             </p>
-            <span className="flex-1" />
             <button type="button" onClick={onDismissError} className="underline underline-offset-4 hover:text-ink">
               إخفاء
             </button>
           </>
         )}
+        <span className="flex-1" />
+        <HighlightLegend />
       </div>
     </div>
   );

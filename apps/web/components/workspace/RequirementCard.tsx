@@ -1,3 +1,4 @@
+import { LocateIcon, SourceIcon } from "@/components/ui/icons";
 import { requirementLabel, requirementMessage } from "@/lib/workspace/requirement-labels";
 import type { WorkspaceRequirement } from "@/lib/workspace/types";
 
@@ -12,6 +13,14 @@ type RequirementCardProps = {
   onAction: () => void;
 };
 
+/* Quiet, text-style secondary actions (go to text, show source). */
+const QUIET_ACTION =
+  "inline-flex h-8 items-center gap-1.5 rounded-[3px] px-1.5 text-[12.5px] text-muted hover:bg-ink/5 hover:text-ink";
+
+/*
+ * One open requirement. Editorial treatment: a side rule carries the status (solid terracotta =
+ * journal requirement not met, dashed = needs review) instead of a tinted, bordered box.
+ */
 export function RequirementCard({
   requirement,
   selected,
@@ -28,21 +37,20 @@ export function RequirementCard({
   return (
     <article
       id={`req-card-${requirement.ruleId}`}
-      className={`rounded-[4px] p-4 ${
-        isReview
-          ? "border-[1.5px] border-dashed border-subtle bg-paper-raised"
-          : "border border-terracotta/45 bg-terracotta-tint"
-      } ${selected ? "outline-2 outline-offset-2 outline-ink" : ""}`}
+      className={`py-3 ps-4 pe-2 ${
+        isReview ? "border-s-2 border-dashed border-subtle" : "border-s-[3px] border-terracotta"
+      } ${selected ? "bg-paper-raised outline-2 outline-offset-2 outline-ink" : ""}`}
     >
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px]">
         {isReview ? (
-          <span className="rounded-[3px] bg-stone/30 px-2 py-0.5 text-[11px] font-bold text-muted">◐ بحاجة إلى مراجعة</span>
+          <span className="font-bold text-muted">◐ بحاجة إلى مراجعة</span>
         ) : (
-          <span className="rounded-[3px] bg-terracotta/15 px-2 py-0.5 text-[11px] font-bold text-terracotta-text">
-            ✕ متطلب المجلة
-          </span>
+          <span className="font-bold text-terracotta-text">✕ متطلب المجلة</span>
         )}
-        <span className="text-xs text-muted">
+        <span aria-hidden="true" className="text-subtle">
+          ·
+        </span>
+        <span className="text-muted">
           {label.latin ? (
             <span dir="ltr" className="font-latin">
               {label.text}
@@ -54,7 +62,7 @@ export function RequirementCard({
         {selected && <span className="sr-only">(البند المحدد)</span>}
       </div>
 
-      <p className="mt-2 text-[14.5px] leading-relaxed font-semibold">
+      <p className="mt-1.5 text-[14px] leading-relaxed font-semibold text-ink">
         {message.latin ? (
           <span dir="ltr" className="block font-latin">
             {message.text}
@@ -71,7 +79,7 @@ export function RequirementCard({
           </span>
         </p>
       ) : (
-        <p className="mt-1 text-[12.5px] text-body">
+        <p className="mt-1 text-[12.5px] leading-relaxed text-body">
           {requirement.measured && (
             <>
               في بحثك:{" "}
@@ -88,21 +96,15 @@ export function RequirementCard({
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-1">
         {canGoToText && (
-          <button
-            type="button"
-            onClick={onGoToText}
-            className="h-9 rounded-[3px] border border-rule-strong px-3 text-[13px] hover:border-ink"
-          >
+          <button type="button" onClick={onGoToText} className={QUIET_ACTION}>
+            <LocateIcon className="text-[14px]" />
             انتقل إلى النص
           </button>
         )}
-        <button
-          type="button"
-          onClick={onShowSource}
-          className="h-9 px-1 text-[13px] underline underline-offset-4 hover:text-terracotta-text"
-        >
+        <button type="button" onClick={onShowSource} className={QUIET_ACTION}>
+          <SourceIcon className="text-[14px]" />
           عرض المصدر
         </button>
         <span className="flex-1" />
@@ -110,7 +112,7 @@ export function RequirementCard({
           <button
             type="button"
             onClick={onAction}
-            className="h-9 rounded-[3px] bg-ink px-3 text-[13px] font-semibold text-paper hover:bg-ink/90"
+            className="h-8 rounded-[3px] bg-ink px-3 text-[12.5px] font-semibold text-paper hover:bg-ink/90"
           >
             {actionLabel}
           </button>

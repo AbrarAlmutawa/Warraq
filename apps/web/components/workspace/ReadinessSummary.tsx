@@ -18,11 +18,15 @@ export function ReadinessCounts({ summary }: { summary: ReadinessSummary }) {
 }
 
 const TICK_CLASS: Record<RequirementStatus, string> = {
-  failed: "h-2.5 flex-1 bg-terracotta",
-  review: "h-2.5 flex-1 border-[1.5px] border-dashed border-subtle",
-  passed: "h-2.5 flex-1 bg-mint",
+  failed: "h-2 flex-1 bg-terracotta",
+  review: "h-2 flex-1 border-[1.5px] border-dashed border-subtle",
+  passed: "h-2 flex-1 bg-mint",
 };
 
+/*
+ * The panel's readiness line: a heading, the status sentence and the tick bar. The counts are
+ * shown once, in the workspace header (ReadinessCounts), so they are not repeated here.
+ */
 export function ReadinessPanelSummary({
   summary,
   results,
@@ -39,11 +43,11 @@ export function ReadinessPanelSummary({
   ];
 
   return (
-    <section aria-labelledby="readiness-heading" className="shrink-0 border-b border-rule px-5 py-4">
-      <h2 id="readiness-heading" className="text-[15px] font-bold">
+    <section aria-labelledby="readiness-heading" className="shrink-0 border-b border-rule px-5 pt-4 pb-3.5">
+      <h2 id="readiness-heading" className="text-[13px] font-bold text-muted">
         جاهزية البحث للنشر
       </h2>
-      <p id="readiness-status" aria-live="polite" className="mt-1.5 text-[13.5px] leading-relaxed">
+      <p id="readiness-status" aria-live="polite" className="mt-1 text-[14px] leading-relaxed">
         {status.tone === "ready" ? (
           <span className="bg-terracotta/25 px-1.5 font-bold">جاهز للتقديم</span>
         ) : (
@@ -51,22 +55,7 @@ export function ReadinessPanelSummary({
         )}
       </p>
 
-      <div className="mt-3 grid grid-cols-3 gap-3">
-        <div className="flex flex-col">
-          <span className="text-xl font-bold text-terracotta-text">✕ {summary.hardErrorCount}</span>
-          <span className="text-[11.5px] text-muted">إلزامية غير مستوفاة</span>
-        </div>
-        <div className="flex flex-col">
-          <span className="text-xl font-bold text-muted">◐ {summary.reviewCount}</span>
-          <span className="text-[11.5px] text-muted">بحاجة إلى مراجعة</span>
-        </div>
-        <div className="flex flex-col">
-          <span className="text-xl font-bold text-mint-text">✓ {summary.passedCount}</span>
-          <span className="text-[11.5px] text-muted">مستوفاة</span>
-        </div>
-      </div>
-
-      <div aria-hidden="true" className="mt-3 flex gap-0.5">
+      <div aria-hidden="true" className="mt-2.5 flex gap-0.5">
         {ordered.map((result, index) => (
           <span key={index} className={TICK_CLASS[result.status]} />
         ))}

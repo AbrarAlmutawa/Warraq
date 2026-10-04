@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { downloadManuscript, type DownloadFormat } from "@/lib/api-client";
 import { describeError } from "@/lib/api-errors";
 
@@ -9,6 +9,10 @@ type DownloadManuscriptButtonProps = {
   className: string;
   label?: string;
   format?: DownloadFormat;
+  /* Optional decorative icon shown before the label. */
+  icon?: ReactNode;
+  /* Optional tooltip (e.g. what the LaTeX zip contains). */
+  title?: string;
 };
 
 /* Downloads the current version of the manuscript (GET /manuscripts/{id}/download): Word or a LaTeX zip. */
@@ -17,6 +21,8 @@ export function DownloadManuscriptButton({
   className,
   label = "تنزيل ملف Word",
   format = "docx",
+  icon,
+  title,
 }: DownloadManuscriptButtonProps) {
   const [state, setState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
 
@@ -41,7 +47,8 @@ export function DownloadManuscriptButton({
 
   return (
     <span className="inline-flex items-center gap-3">
-      <button type="button" onClick={download} disabled={state.busy} className={className}>
+      <button type="button" onClick={download} disabled={state.busy} title={title} className={className}>
+        {icon}
         {state.busy ? "نجهّز الملف…" : label}
       </button>
       {state.error && (

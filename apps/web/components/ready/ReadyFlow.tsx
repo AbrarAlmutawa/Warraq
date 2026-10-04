@@ -11,7 +11,13 @@ import { JourneySteps } from "@/components/layout/JourneySteps";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { ReadyView, type ReadyManuscript } from "@/components/ready/ReadyView";
 import { toJournalSummary, toWorkspaceReadiness, toWorkspaceRequirement } from "@/lib/api-adapters";
-import { getManuscript, isNotFound, listJournals, validateManuscript } from "@/lib/api-client";
+import {
+  getManuscript,
+  isNotFound,
+  listJournals,
+  validateManuscript,
+  type ApiParsedManuscript,
+} from "@/lib/api-client";
 import { describeError, type ErrorPresentation } from "@/lib/api-errors";
 import type { JournalSummary } from "@/lib/journals/types";
 import { clearSession, readSession } from "@/lib/session";
@@ -38,6 +44,9 @@ type LoadState =
       isDemoManuscript: boolean;
       /* Name of the file uploaded in this browser session, if the session recorded one. */
       fileName: string | null;
+      /* The latest saved revision (0 = the original upload) and its parse, for "عرض البحث". */
+      revision: number;
+      parsed: ApiParsedManuscript;
     }
   | { status: "error"; error: ErrorPresentation; manuscriptGone: boolean };
 
@@ -136,6 +145,8 @@ export function ReadyFlow({ journalId }: ReadyFlowProps) {
           summary: toWorkspaceReadiness(report.summary),
           isDemoManuscript,
           fileName,
+          revision: manuscriptResult.value.revision ?? 0,
+          parsed,
         });
       });
     });
@@ -254,6 +265,8 @@ export function ReadyFlow({ journalId }: ReadyFlowProps) {
         summary={load.summary}
         isDemoManuscript={load.isDemoManuscript}
         fileName={load.fileName}
+        revision={load.revision}
+        parsed={load.parsed}
       />
     </>
   );
