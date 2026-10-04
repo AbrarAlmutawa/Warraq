@@ -20,7 +20,7 @@ class NotEditable(Exception):
     """The original file of this manuscript was not kept (uploaded before editing existed)."""
 
 
-Operation = Callable[[object, object], str]  # (doc, parsed) -> description
+Operation = Callable[[object, object], str | None]  # (doc, parsed) -> description, None = no change
 
 
 def save_original(store: Store, record: ManuscriptRecord, docx: bytes) -> None:
@@ -29,15 +29,24 @@ def save_original(store: Store, record: ManuscriptRecord, docx: bytes) -> None:
         store.save_revision(record.manuscript_id, 0, "Original upload", docx, record.parsed)
 
 
-def apply(store: Store, manuscript_id: str, operation: Operation, description: str | None = None) -> ManuscriptRecord:
+class StaleRevision(Exception):
+    """The edit was made on an older version than the latest one."""
+
+
+def apply(store: Store, manuscript_id: str, operation: Operation, description: str | None = None,
+          base_revision: int | None = None) -> ManuscriptRecord:
     record = store.get_manuscript(manuscript_id)
     latest = store.get_revision_docx(manuscript_id)
     if record is None or latest is None:
         raise NotEditable()
     revision, docx = latest
+    if base_revision is not None and base_revision != revision:
+        raise StaleRevision()
 
     doc = ed.load(docx)
     default_description = operation(doc, record.parsed)
+    if default_description is None:
+        return record  # nothing changed: no new revision
     new_docx = ed.save(doc)
     parsed = ed.reparse(new_docx)
 

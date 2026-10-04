@@ -244,3 +244,85 @@ def replace_references(doc, parsed, references: list[str]) -> str:
     for paragraph in old[len(refs):]:
         delete(paragraph)
     return f"References replaced ({len(refs)})"
+
+
+# ------------------------------------------------------------ direct editing
+
+def _normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def apply_text(doc, parsed, paragraphs: list[str]) -> str | None:
+    """
+    Make the document's paragraphs match what the researcher typed in the editor.
+
+    `paragraphs` is the editor text split into lines (one paragraph per line, as the
+    editor shows them). It is aligned with the current paragraphs, and only the
+    differences are written to the Word file: changed paragraphs get their new text,
+    new lines become new paragraphs (formatted like the paragraph before them, so a
+    line typed after the last reference becomes a reference), and removed lines are
+    deleted. Untouched paragraphs, tables and images are left exactly as they were.
+    Returns None when nothing changed.
+    """
+    import difflib
+
+    new = [_normalize(p) for p in paragraphs]
+    new = [p for p in new if p]
+    if any(len(p) > MAX_TEXT for p in new):
+        raise EditError("One of the paragraphs is too long.")
+
+    blocks, seen = [], set()
+    for block in sorted(parsed.blocks, key=lambda b: b.paragraph_index):
+        text = _normalize(block.text)
+        if text and block.id not in seen:
+            seen.add(block.id)
+            blocks.append((block, text))
+    if not new and blocks:
+        raise EditError("The manuscript can't be left empty.")
+
+    paragraphs_in_doc = doc.paragraphs
+    old = [paragraphs_in_doc[b.paragraph_index] for b, _ in blocks]
+    old_text = [t for _, t in blocks]
+
+    matcher = difflib.SequenceMatcher(a=old_text, b=new, autojunk=False)
+    changed = added = removed = 0
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        if tag in ("replace", "delete"):
+            pairs = min(i2 - i1, j2 - j1) if tag == "replace" else 0
+            for k in range(pairs):
+                set_text(old[i1 + k], new[j1 + k])
+                changed += 1
+            last = old[i1 + pairs - 1] if pairs else (old[i1 - 1] if i1 > 0 else None)
+            for text in new[j1 + pairs:j2]:
+                last = insert_after(last, text, template=old[i1]) if last is not None else insert_before(old[i1], text, old[i1])
+                added += 1
+            for paragraph in old[i1 + pairs:i2]:
+                delete(paragraph)
+                removed += 1
+        elif tag == "insert":
+            if i1 > 0:
+                last = old[i1 - 1]
+                for text in new[j1:j2]:
+                    last = insert_after(last, text, template=old[i1 - 1])
+                    added += 1
+            elif old:
+                for text in new[j1:j2]:
+                    insert_before(old[0], text, old[0])
+                    added += 1
+            else:
+                for text in new[j1:j2]:
+                    doc.add_paragraph(text)
+                    added += 1
+
+    if not (changed or added or removed):
+        return None
+    parts = []
+    if changed:
+        parts.append(f"{changed} edited")
+    if added:
+        parts.append(f"{added} added")
+    if removed:
+        parts.append(f"{removed} removed")
+    return "Text edited (" + ", ".join(parts) + ")"

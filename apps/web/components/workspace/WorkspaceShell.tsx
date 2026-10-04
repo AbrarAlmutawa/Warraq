@@ -1,12 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CitationConversionDialog,
   type ConversionEntry,
 } from "@/components/workspace/CitationConversionDialog";
-import { EditParagraphDialog, type ParagraphTarget } from "@/components/workspace/EditParagraphDialog";
 import { ManuscriptToolbar } from "@/components/workspace/ManuscriptToolbar";
 import {
   RequirementsPanel,
@@ -37,10 +36,10 @@ import {
   convertCitations,
   decideSuggestion,
   downloadManuscript,
-  editBlock,
   getSuggestions,
   replaceReferences,
   resetManuscript,
+  saveManuscriptText,
   undoLastEdit,
   validateManuscript,
   type ApiManuscriptRecord,
@@ -159,8 +158,11 @@ export function WorkspaceShell({
   const [applyingSuggestionId, setApplyingSuggestionId] = useState<string | null>(null);
   const [revalidating, setRevalidating] = useState(false);
   const [downloading, setDownloading] = useState<DownloadFormat | null>(null);
-  const [cursorLine, setCursorLine] = useState<number | null>(null);
-  const [paragraphTarget, setParagraphTarget] = useState<ParagraphTarget | null>(null);
+  /* Direct editing: text typed in the editor that is not saved yet (null = in sync). */
+  const [draft, setDraft] = useState<string | null>(null);
+  const [textStatus, setTextStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const draftRef = useRef<string | null>(null);
+  const savingTextRef = useRef(false);
 
   const [activeJournalId, setActiveJournalId] = useState(initialJournalId);
   /* Full /validate results per journal id, for the life of this page. */
@@ -209,26 +211,17 @@ export function WorkspaceShell({
   const summary = activeReport.summary;
 
   // Decorations depend only on the backend checklist and the selection — never on suggestions.
-  const decorations = useMemo(
+  const allDecorations = useMemo(
     () => buildRequirementDecorations(manuscriptDocument, requirements, selected),
     [manuscriptDocument, requirements, selected],
   );
+  // While there is unsaved typing, line positions no longer match the checked version.
+  const decorations = draft === null ? allDecorations : [];
 
   const stats: WorkspaceStats = {
     ...baseStats,
     citationStyle: requirements.find((requirement) => requirement.ruleId === "citation_style")?.measured ?? null,
   };
-
-  // The paragraph under the editor cursor (one block = one line).
-  let cursorBlock: ParagraphTarget | null = null;
-  if (cursorLine !== null) {
-    for (const [blockId, range] of manuscriptDocument.blockRanges) {
-      if (range.startLineNumber === cursorLine) {
-        cursorBlock = { blockId, text: manuscriptDocument.text.split("\n")[cursorLine - 1] ?? "" };
-        break;
-      }
-    }
-  }
 
   const sourceRequirement = requirements.find((requirement) => requirement.ruleId === sourceRuleId) ?? null;
   const activeSuggestions = has(suggestionsByJournal, activeJournalId)
@@ -382,7 +375,6 @@ export function WorkspaceShell({
   const adoptVersion = (next: ApiManuscriptRecord) => {
     setRecord(next);
     setSelected(null);
-    setCursorLine(null);
     // Results for the previous version are no longer true. Keep the active report on screen
     // until the new one arrives (so the panel never goes empty), drop everything else.
     setReports((current) => ({ [activeJournalId]: current[activeJournalId] }));
@@ -401,7 +393,8 @@ export function WorkspaceShell({
     onDone: (next: ApiManuscriptRecord) => void,
     onFail?: (message: string) => void,
   ) => {
-    if (editState.busy) return;
+    // Typing that isn't saved yet must reach the backend first, or it would be lost.
+    if (editState.busy || draftRef.current !== null || savingTextRef.current) return;
     setEditState({ busy: busyLabel, error: null });
     call().then(
       (next) => {
@@ -473,24 +466,73 @@ export function WorkspaceShell({
     );
   };
 
-  const openParagraphEditor = () => {
-    if (cursorBlock) {
-      setEditState((state) => ({ ...state, error: null }));
-      setParagraphTarget(cursorBlock);
-    }
-  };
+  // ── Direct editing: type in the editor, saved automatically (PUT /manuscripts/{id}/text)
+  const textEditable = version.editable && editState.busy === null;
+  const textBusy = draft !== null || textStatus === "saving";
 
-  const saveParagraph = (text: string) => {
-    if (!paragraphTarget) return;
-    runEdit(
-      "نحفظ التعديل…",
-      () => editBlock(manuscriptId, paragraphTarget.blockId, text),
-      () => {
-        setParagraphTarget(null);
-        editToast("حُفظ تعديل الفقرة وأُعيد فحص المتطلبات.");
+  const saveText = () => {
+    const text = draftRef.current;
+    if (text === null || savingTextRef.current) return;
+    savingTextRef.current = true;
+    setTextStatus("saving");
+    const paragraphs = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    saveManuscriptText(manuscriptId, paragraphs, record.revision ?? 0).then(
+      (next) => {
+        savingTextRef.current = false;
+        const typedMeanwhile = draftRef.current !== text;
+        if (!typedMeanwhile) {
+          draftRef.current = null;
+          setDraft(null);
+        }
+        if ((next.revision ?? 0) !== (record.revision ?? 0)) adoptVersion(next);
+        setTextStatus(typedMeanwhile ? "idle" : "saved");
+      },
+      (error: unknown) => {
+        savingTextRef.current = false;
+        setTextStatus("idle");
+        const presentation = describeError(error);
+        setEditState({
+          busy: null,
+          error: `لم تُحفظ تعديلاتك: ${presentation.detail ? `${presentation.title} — ${presentation.detail}` : presentation.title}`,
+        });
       },
     );
   };
+
+  const changeText = (text: string) => {
+    const next = text === manuscriptDocument.text ? null : text;
+    draftRef.current = next;
+    setDraft(next);
+    if (next !== null) setTextStatus("idle");
+  };
+
+  // Save shortly after the researcher stops typing (and again if they kept typing during a save).
+  useEffect(() => {
+    if (draft === null || textStatus === "saving") return;
+    const timer = window.setTimeout(saveText, 1200);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, textStatus]);
+
+  // "Saved" is shown briefly, then the status line returns to the hint.
+  useEffect(() => {
+    if (textStatus !== "saved") return;
+    const timer = window.setTimeout(() => setTextStatus("idle"), 2500);
+    return () => window.clearTimeout(timer);
+  }, [textStatus]);
+
+  // Warn before closing the tab with typing that hasn't reached the backend yet.
+  useEffect(() => {
+    if (!textBusy) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [textBusy]);
 
   const undoEdit = () => {
     setToast(null);
@@ -689,10 +731,9 @@ export function WorkspaceShell({
             version={version}
             busyLabel={editState.busy}
             revalidating={revalidating}
-            error={paragraphTarget ? null : editState.error}
-            canEditParagraph={cursorBlock !== null}
+            error={editState.error}
+            textState={draft !== null ? "dirty" : textStatus}
             downloading={downloading}
-            onEditParagraph={openParagraphEditor}
             onUndo={undoEdit}
             onReset={resetToOriginal}
             onDownload={download}
@@ -701,11 +742,14 @@ export function WorkspaceShell({
           <div className="min-h-0 flex-1 bg-paper-raised">
             <ManuscriptEditor
               value={manuscriptDocument.text}
+              dirty={draft !== null || textStatus === "saving"}
+              editable={textEditable}
               decorations={decorations}
               revealRange={revealRange}
               revealNonce={revealNonce}
               onSelectTarget={setSelected}
-              onCursorLine={setCursorLine}
+              onChangeText={changeText}
+              onBlur={saveText}
             />
           </div>
         </main>
@@ -728,7 +772,7 @@ export function WorkspaceShell({
           onDecideSuggestion={recordDecision}
           canApplySuggestion={canApplySuggestion}
           applyingSuggestionId={applyingSuggestionId}
-          editBusy={editState.busy !== null}
+          editBusy={editState.busy !== null || textBusy}
           onApplySuggestion={applyAiSuggestion}
         />
       </div>
@@ -761,14 +805,6 @@ export function WorkspaceShell({
         applying={editState.busy !== null && conversionOpen}
         applyError={conversionOpen ? editState.error : null}
         onApply={applyConversion}
-      />
-
-      <EditParagraphDialog
-        target={paragraphTarget}
-        saving={editState.busy !== null}
-        error={paragraphTarget ? editState.error : null}
-        onSave={saveParagraph}
-        onClose={() => setParagraphTarget(null)}
       />
 
       <SwitchJournalDialog

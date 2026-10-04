@@ -106,7 +106,7 @@ export function isNotFound(error: unknown): boolean {
 }
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   json?: unknown;
   formData?: FormData;
   timeoutMs?: number;
@@ -319,11 +319,17 @@ export function matchJournalList(
  * backend. Each call returns the updated ManuscriptRecord (the new current version), whose
  * parsed.blocks replace the editor text; block ids can change after an edit. */
 
-/* PATCH /manuscripts/{id}/blocks/{block_id} — replace one paragraph's text. */
-export function editBlock(manuscriptId: string, blockId: string, text: string): Promise<ApiManuscriptRecord> {
-  return request<ApiManuscriptRecord>(`/manuscripts/${id(manuscriptId)}/blocks/${id(blockId)}`, {
-    method: "PATCH",
-    json: { text },
+/* PUT /manuscripts/{id}/text — save what the researcher typed in the editor (one paragraph per
+ * line). The backend writes only the differences into the Word file; unchanged text = no new
+ * revision. base_revision protects against overwriting a newer version (409). */
+export function saveManuscriptText(
+  manuscriptId: string,
+  paragraphs: string[],
+  baseRevision: number,
+): Promise<ApiManuscriptRecord> {
+  return request<ApiManuscriptRecord>(`/manuscripts/${id(manuscriptId)}/text`, {
+    method: "PUT",
+    json: { paragraphs, base_revision: baseRevision },
     timeoutMs: EDIT_TIMEOUT_MS,
   });
 }

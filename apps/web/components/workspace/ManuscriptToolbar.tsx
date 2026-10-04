@@ -12,10 +12,10 @@ type ManuscriptToolbarProps = {
   revalidating: boolean;
   /* Arabic message of the last failed edit, or null. */
   error: string | null;
-  canEditParagraph: boolean;
+  /* Direct typing in the editor: unsaved ("dirty"), being saved, or just saved. */
+  textState: "idle" | "dirty" | "saving" | "saved";
   /* The format being downloaded, or null. */
   downloading: DownloadFormat | null;
-  onEditParagraph: () => void;
   onUndo: () => void;
   onReset: () => void;
   onDownload: (format: DownloadFormat) => void;
@@ -35,17 +35,27 @@ export function ManuscriptToolbar({
   busyLabel,
   revalidating,
   error,
-  canEditParagraph,
+  textState,
   downloading,
-  onEditParagraph,
   onUndo,
   onReset,
   onDownload,
   onDismissError,
 }: ManuscriptToolbarProps) {
   const latest = version.history.at(-1);
-  const busy = busyLabel !== null;
-  const status = busyLabel ?? (revalidating ? "نعيد فحص المتطلبات للنسخة الجديدة…" : null);
+  const typing = textState === "dirty" || textState === "saving";
+  const busy = busyLabel !== null || typing;
+  const status =
+    busyLabel ??
+    (textState === "saving"
+      ? "نحفظ تعديلاتك…"
+      : textState === "dirty"
+        ? "تعديلات لم تُحفظ بعد…"
+        : revalidating
+          ? "نعيد فحص المتطلبات للنسخة الجديدة…"
+          : textState === "saved"
+            ? "✓ حُفظت تعديلاتك"
+            : null);
 
   if (!version.editable) {
     return (
@@ -72,15 +82,6 @@ export function ManuscriptToolbar({
 
         <span className="flex-1" />
 
-        <button
-          type="button"
-          onClick={onEditParagraph}
-          disabled={busy || !canEditParagraph}
-          title={canEditParagraph ? undefined : "ضع المؤشر على فقرة في المحرر أولًا"}
-          className={BUTTON}
-        >
-          تعديل الفقرة
-        </button>
         <button type="button" onClick={onUndo} disabled={busy || version.revision === 0} className={BUTTON}>
           تراجع
         </button>
@@ -106,26 +107,30 @@ export function ManuscriptToolbar({
         </button>
       </div>
 
-      {(status || error) && (
-        <div className="flex items-center gap-3 border-t border-rule px-4 py-1.5 text-[12.5px]">
-          {status && (
-            <p role="status" className="text-muted">
-              {status}
+      <div className="flex min-h-8 items-center gap-3 border-t border-rule px-4 py-1.5 text-[12.5px]">
+        {status ? (
+          <p role="status" className="text-muted">
+            {status}
+          </p>
+        ) : (
+          !error && (
+            <p className="text-subtle">
+              اكتب مباشرة في النص، ويُحفظ تلقائيًا. كل سطر فقرة، واضغط Enter لإضافة فقرة أو مرجع جديد.
             </p>
-          )}
-          {error && (
-            <>
-              <p role="alert" className="font-semibold text-terracotta-text">
-                ✕ {error}
-              </p>
-              <span className="flex-1" />
-              <button type="button" onClick={onDismissError} className="underline underline-offset-4 hover:text-ink">
-                إخفاء
-              </button>
-            </>
-          )}
-        </div>
-      )}
+          )
+        )}
+        {error && (
+          <>
+            <p role="alert" className="font-semibold text-terracotta-text">
+              ✕ {error}
+            </p>
+            <span className="flex-1" />
+            <button type="button" onClick={onDismissError} className="underline underline-offset-4 hover:text-ink">
+              إخفاء
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -21,6 +21,7 @@ figures, keeps the parser's counts consistent, and gives them a file they can ac
 
 | Method | Endpoint | Body | What it does |
 | --- | --- | --- | --- |
+| PUT | `/manuscripts/{id}/text` | `{paragraphs: [...], base_revision}` | Save what was typed in the editor (only the differences are applied) |
 | PATCH | `/manuscripts/{id}/blocks/{block_id}` | `{text}` | Replace one paragraph's text |
 | POST | `/manuscripts/{id}/apply-suggestion/{suggestion_id}` | none | Apply an accepted AI suggestion and mark it `accepted` |
 | POST | `/manuscripts/{id}/references` | `{references: [...], description?}` | Replace the reference list (e.g. after `/citations/convert`) |
@@ -30,6 +31,21 @@ figures, keeps the parser's counts consistent, and gives them a file they can ac
 
 Every editing endpoint returns the updated `ManuscriptRecord`, so the frontend can redraw the
 editor from the response without another request.
+
+## Typing directly in the editor
+
+The workspace editor is editable. Its text is one paragraph per line (blank lines between them).
+The frontend sends all lines with the revision it was showing; the backend aligns them with the
+current paragraphs and writes only the differences into the Word file:
+
+- a changed line updates that paragraph (keeping its formatting),
+- a new line becomes a new paragraph formatted like the one before it, so a line typed after the
+  last reference is a new reference,
+- a removed line deletes that paragraph,
+- tables, images and untouched paragraphs stay exactly as they were.
+
+Unchanged text creates no revision. If the manuscript changed since the editor loaded it (another
+tab, another edit), the save is refused with 409 instead of overwriting the newer version.
 
 ## What gets applied
 

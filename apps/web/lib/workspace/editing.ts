@@ -37,6 +37,7 @@ export function revisionLabel(revision: ManuscriptRevision): string {
   if (lower.startsWith("title updated")) return "تعديل العنوان";
   if (lower.startsWith("abstract updated")) return "تعديل الملخص";
   if (lower.startsWith("edited paragraph")) return "تعديل فقرة";
+  if (lower.startsWith("text edited")) return "تعديل مباشر في النص";
   if (lower.startsWith("references converted to ")) return `تحويل المراجع إلى ${text.slice(25).trim()}`;
   if (lower.startsWith("references replaced")) return "تحديث قائمة المراجع";
 

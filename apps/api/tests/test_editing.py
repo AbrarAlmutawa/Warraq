@@ -158,3 +158,55 @@ def test_old_manuscripts_become_editable_after_reupload(client, store):
 
     assert upload(client)["manuscript_id"] == "legacy"
     assert client.patch("/manuscripts/legacy/blocks/paragraph_0", json={"text": SHORT_TITLE}).status_code == 200
+
+
+# ------------------------------------------------------------ direct editing (PUT /text)
+
+def editor_lines(record):
+    """The editor text, as the frontend builds it: one non-empty block per line."""
+    blocks = sorted(record["parsed"]["blocks"], key=lambda b: b["paragraph_index"])
+    return [" ".join(b["text"].split()) for b in blocks if b["text"].strip()]
+
+
+def test_typing_a_new_reference_adds_one(client):
+    mid = upload(client)["manuscript_id"]
+    record = client.get(f"/manuscripts/{mid}").json()
+    lines = editor_lines(record) + ["[23] Z. Example, “A new placeholder reference,” Demo Journal, vol. 8, 2026."]
+
+    saved = client.put(f"/manuscripts/{mid}/text", json={"paragraphs": lines, "base_revision": 0}).json()
+    assert saved["revision"] == 1 and saved["parsed"]["reference_count"] == 23
+    assert saved["parsed"]["blocks"][-1]["type"] == "reference"
+    assert saved["history"][-1]["description"] == "Text edited (1 added)"
+    assert editor_lines(saved) == lines
+
+
+def test_direct_edits_change_insert_and_remove(client):
+    mid = upload(client)["manuscript_id"]
+    lines = editor_lines(client.get(f"/manuscripts/{mid}").json())
+    lines[0] = SHORT_TITLE
+    lines.remove("This research received no external funding.")
+    lines.insert(5, "A brand new paragraph.")
+
+    saved = client.put(f"/manuscripts/{mid}/text", json={"paragraphs": lines, "base_revision": 0}).json()
+    assert saved["parsed"]["title"] == SHORT_TITLE
+    assert editor_lines(saved) == lines
+    assert saved["parsed"]["table_count"] == 2 and saved["parsed"]["figure_count"] == 1
+    assert checklist(client, mid, "demo-ai-001")[0]["title_length"] == "passed"
+
+
+def test_unchanged_text_creates_no_revision(client):
+    mid = upload(client)["manuscript_id"]
+    lines = editor_lines(client.get(f"/manuscripts/{mid}").json())
+    spaced = ["  " + line.replace(" ", "  ") + "  " for line in lines] + ["", "   "]
+    saved = client.put(f"/manuscripts/{mid}/text", json={"paragraphs": spaced, "base_revision": 0}).json()
+    assert saved["revision"] == 0 and len(saved["history"]) == 1
+
+
+def test_stale_or_empty_text_is_refused(client):
+    mid = upload(client)["manuscript_id"]
+    lines = editor_lines(client.get(f"/manuscripts/{mid}").json())
+    client.patch(f"/manuscripts/{mid}/blocks/paragraph_0", json={"text": SHORT_TITLE})
+    stale = client.put(f"/manuscripts/{mid}/text", json={"paragraphs": lines, "base_revision": 0})
+    assert stale.status_code == 409 and "changed" in stale.json()["detail"]
+    empty = client.put(f"/manuscripts/{mid}/text", json={"paragraphs": ["", " "], "base_revision": 1})
+    assert empty.status_code == 409

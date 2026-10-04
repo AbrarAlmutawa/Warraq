@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from db import get_store
 from db.store import Store
 from models.manuscript import ManuscriptRecord
-from services.editing import EditError, NotEditable, apply, apply_suggestion, reset, undo
+from services.editing import EditError, NotEditable, StaleRevision, apply, apply_suggestion, reset, undo
 from services.editing import docx_edits as ed
 from services.export import latex_zip
 
@@ -31,6 +31,13 @@ class BlockEdit(BaseModel):
     text: str = Field(min_length=1, max_length=ed.MAX_TEXT)
 
 
+class TextEdit(BaseModel):
+    # The editor text as paragraphs (one per line). Empty lines are ignored.
+    paragraphs: list[str] = Field(max_length=20_000)
+    # The revision the editor was showing. If the manuscript changed since, the edit is refused.
+    base_revision: int = Field(ge=0)
+
+
 class ReferencesEdit(BaseModel):
     references: list[str] = Field(min_length=1, max_length=1000)
     # Optional label for the history, e.g. "References converted to APA".
@@ -42,6 +49,11 @@ def _run(fn):
         return fn()
     except NotEditable:
         raise HTTPException(status_code=409, detail=NOT_EDITABLE)
+    except StaleRevision:
+        raise HTTPException(
+            status_code=409,
+            detail="The manuscript changed since this text was loaded (for example in another tab). Reload to continue.",
+        )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except EditError as exc:
@@ -58,6 +70,21 @@ def edit_block(manuscript_id: str, block_id: str, edit: BlockEdit, store: Store 
     """Replace the text of one paragraph (block ids come from the current version's `parsed.blocks`)."""
     _require(store, manuscript_id)
     return _run(lambda: apply(store, manuscript_id, lambda doc, parsed: ed.set_block_text(doc, parsed, block_id, edit.text)))
+
+
+@router.put("/{manuscript_id}/text", response_model=ManuscriptRecord)
+def edit_text(manuscript_id: str, edit: TextEdit, store: Store = Depends(get_store)):
+    """
+    Save what the researcher typed directly in the editor. The text is compared with the
+    current version and only the differences are written to the Word file (edited, added
+    and removed paragraphs). No change = no new revision.
+    """
+    _require(store, manuscript_id)
+    return _run(lambda: apply(
+        store, manuscript_id,
+        lambda doc, parsed: ed.apply_text(doc, parsed, edit.paragraphs),
+        base_revision=edit.base_revision,
+    ))
 
 
 @router.post("/{manuscript_id}/apply-suggestion/{suggestion_id}", response_model=ManuscriptRecord)
