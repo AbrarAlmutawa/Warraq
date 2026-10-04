@@ -44,6 +44,7 @@ import {
   undoLastEdit,
   validateManuscript,
   type ApiManuscriptRecord,
+  type DownloadFormat,
 } from "@/lib/api-client";
 import { describeError, type ErrorPresentation } from "@/lib/api-errors";
 import type { JournalSummary } from "@/lib/journals/types";
@@ -157,7 +158,7 @@ export function WorkspaceShell({
   const [editState, setEditState] = useState<EditState>({ busy: null, error: null });
   const [applyingSuggestionId, setApplyingSuggestionId] = useState<string | null>(null);
   const [revalidating, setRevalidating] = useState(false);
-  const [downloading, setDownloading] = useState(false);
+  const [downloading, setDownloading] = useState<DownloadFormat | null>(null);
   const [cursorLine, setCursorLine] = useState<number | null>(null);
   const [paragraphTarget, setParagraphTarget] = useState<ParagraphTarget | null>(null);
 
@@ -504,16 +505,16 @@ export function WorkspaceShell({
     );
   };
 
-  const download = () => {
+  const download = (format: DownloadFormat) => {
     if (downloading) return;
-    setDownloading(true);
-    downloadManuscript(manuscriptId).then(
+    setDownloading(format);
+    downloadManuscript(manuscriptId, format).then(
       ({ blob, filename }) => {
-        setDownloading(false);
+        setDownloading(null);
         saveFile(blob, filename);
       },
       (error: unknown) => {
-        setDownloading(false);
+        setDownloading(null);
         setEditState({ busy: null, error: `تعذّر تنزيل الملف: ${describeError(error).title}` });
       },
     );

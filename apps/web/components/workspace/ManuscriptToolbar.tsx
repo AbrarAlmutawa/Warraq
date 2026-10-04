@@ -1,5 +1,6 @@
 "use client";
 
+import type { DownloadFormat } from "@/lib/api-client";
 import { revisionLabel } from "@/lib/workspace/editing";
 import type { ManuscriptVersion } from "@/lib/workspace/types";
 
@@ -12,11 +13,12 @@ type ManuscriptToolbarProps = {
   /* Arabic message of the last failed edit, or null. */
   error: string | null;
   canEditParagraph: boolean;
-  downloading: boolean;
+  /* The format being downloaded, or null. */
+  downloading: DownloadFormat | null;
   onEditParagraph: () => void;
   onUndo: () => void;
   onReset: () => void;
-  onDownload: () => void;
+  onDownload: (format: DownloadFormat) => void;
   onDismissError: () => void;
 };
 
@@ -87,11 +89,20 @@ export function ManuscriptToolbar({
         </button>
         <button
           type="button"
-          onClick={onDownload}
-          disabled={downloading}
+          onClick={() => onDownload("latex")}
+          disabled={downloading !== null}
+          title="ملف مضغوط فيه main.tex والصور، جاهز لـ Overleaf"
+          className={BUTTON}
+        >
+          {downloading === "latex" ? "نجهّز الملف…" : "تنزيل LaTeX"}
+        </button>
+        <button
+          type="button"
+          onClick={() => onDownload("docx")}
+          disabled={downloading !== null}
           className="h-8 shrink-0 rounded-[3px] bg-ink px-3 text-[12.5px] font-semibold text-paper hover:bg-ink/90 disabled:cursor-wait disabled:opacity-60"
         >
-          {downloading ? "نجهّز الملف…" : "تنزيل ملف Word"}
+          {downloading === "docx" ? "نجهّز الملف…" : "تنزيل ملف Word"}
         </button>
       </div>
 

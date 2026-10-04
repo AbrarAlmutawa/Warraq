@@ -320,6 +320,8 @@ export function resetManuscript(manuscriptId: string): Promise<ApiManuscriptReco
 }
 
 export type ManuscriptDownload = { blob: Blob; filename: string };
+/* "docx" = the Word file; "latex" = a zip with main.tex, the figures and a README. */
+export type DownloadFormat = "docx" | "latex";
 
 function filenameFrom(disposition: string | null, fallback: string): string {
   if (!disposition) return fallback;
@@ -335,14 +337,17 @@ function filenameFrom(disposition: string | null, fallback: string): string {
   return plain ? plain[1] : fallback;
 }
 
-/* GET /manuscripts/{id}/download — the current version as a Word file (a binary, not JSON). */
-export async function downloadManuscript(manuscriptId: string): Promise<ManuscriptDownload> {
+/* GET /manuscripts/{id}/download?format= — the current version as a file (a binary, not JSON). */
+export async function downloadManuscript(
+  manuscriptId: string,
+  format: DownloadFormat = "docx",
+): Promise<ManuscriptDownload> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), EDIT_TIMEOUT_MS);
   try {
     let response: Response;
     try {
-      response = await fetch(`${API_BASE_URL}/manuscripts/${id(manuscriptId)}/download`, {
+      response = await fetch(`${API_BASE_URL}/manuscripts/${id(manuscriptId)}/download?format=${format}`, {
         signal: controller.signal,
         cache: "no-store",
       });
@@ -356,7 +361,8 @@ export async function downloadManuscript(manuscriptId: string): Promise<Manuscri
       throw new ApiError("http", response.status, detailOf(data) ?? `Request failed with HTTP ${response.status}.`);
     }
     const blob = await response.blob();
-    return { blob, filename: filenameFrom(response.headers.get("Content-Disposition"), "manuscript.docx") };
+    const fallback = format === "latex" ? "manuscript-latex.zip" : "manuscript.docx";
+    return { blob, filename: filenameFrom(response.headers.get("Content-Disposition"), fallback) };
   } finally {
     clearTimeout(timer);
   }

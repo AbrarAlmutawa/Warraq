@@ -26,7 +26,7 @@ figures, keeps the parser's counts consistent, and gives them a file they can ac
 | POST | `/manuscripts/{id}/references` | `{references: [...], description?}` | Replace the reference list (e.g. after `/citations/convert`) |
 | POST | `/manuscripts/{id}/undo` | none | Remove the latest change |
 | POST | `/manuscripts/{id}/reset` | none | Back to the original upload |
-| GET | `/manuscripts/{id}/download` | `?revision=N` (optional) | The Word file, latest version by default |
+| GET | `/manuscripts/{id}/download` | `?format=docx\|latex`, `?revision=N` (both optional) | The Word file (default) or a LaTeX zip, latest version by default |
 
 Every editing endpoint returns the updated `ManuscriptRecord`, so the frontend can redraw the
 editor from the response without another request.
@@ -66,3 +66,26 @@ the frontend should point the researcher to them.
 - **Undo**, **Start over** and **Download** buttons map directly to `/undo`, `/reset`, `/download`.
   The download response sets `Content-Disposition` with the file name (exposed to the browser).
 - 409 responses carry a readable `detail` to show the researcher.
+
+## LaTeX export
+
+`GET /manuscripts/{id}/download?format=latex` returns a zip that compiles as is (code:
+`apps/api/services/export/latex.py`):
+
+```
+<name>/main.tex      article-class paper
+<name>/figures/      images taken from the Word file
+<name>/README.txt    how to compile (and anything to check by hand)
+```
+
+- Title and author lines become `\title` / `\author`; Abstract and Keywords go in the `abstract`
+  environment; headings become `\section` / `\subsection` (manual numbers are dropped because
+  LaTeX numbers them); statements and Highlights become `\section*`.
+- Bold and italic are kept; images and tables become `figure` / `table` environments with their
+  captions; references become `thebibliography`, and numeric citations like `[1]` or `[2-4]` are
+  linked with `\cite` (author-year citations stay as text).
+- English papers compile with pdfLaTeX. Papers with Arabic text switch to XeLaTeX (polyglossia,
+  Amiri font), as noted at the top of `main.tex` and in the README; English passages inside an
+  Arabic paper stay left-to-right.
+- It is a clean generic version, not a journal's own template: if the journal has one, the
+  sections can be copied into it. Images LaTeX can't include (EMF, WMF...) are listed in the README.

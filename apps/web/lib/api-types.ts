@@ -155,7 +155,9 @@ export interface paths {
         };
         /**
          * Download
-         * @description The manuscript as a Word file: the latest version by default, or ?revision=N.
+         * @description The manuscript as a file: the latest version by default, or ?revision=N.
+         *     format=docx (default) returns the Word file; format=latex returns a zip with
+         *     main.tex, the figures and a README (see docs/editing.md).
          */
         get: operations["download_manuscripts__manuscript_id__download_get"];
         put?: never;
@@ -1420,6 +1422,7 @@ export interface operations {
         parameters: {
             query?: {
                 revision?: number | null;
+                format?: "docx" | "latex";
             };
             header?: never;
             path: {

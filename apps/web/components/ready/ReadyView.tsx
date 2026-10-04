@@ -347,6 +347,12 @@ export function ReadyView({
             label={isReady ? "تنزيل البحث الجاهز (Word)" : "تنزيل آخر نسخة (Word)"}
             className="inline-flex h-12 items-center rounded-[3px] border border-ink px-5 text-[15px] font-semibold hover:bg-ink hover:text-paper disabled:cursor-wait disabled:opacity-60"
           />
+          <DownloadManuscriptButton
+            manuscriptId={manuscriptId}
+            format="latex"
+            label="تنزيل LaTeX"
+            className="inline-flex h-12 items-center rounded-[3px] border border-rule-strong px-5 text-[15px] hover:border-ink disabled:cursor-wait disabled:opacity-60"
+          />
 
           <Link href="/journals" className="text-sm underline underline-offset-4 hover:text-terracotta-text">
             اختيار مجلة أخرى
