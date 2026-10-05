@@ -225,9 +225,14 @@ backend is running.
 cd apps/api
 python -m db.run_agent                       # journals listed in db/seed/journal_sources.json
 python -m db.run_agent path/to/sources.json  # your own list
+python -m db.run_agent --dry-run             # only find guideline pages: no AI calls, no DB writes
 ```
 
 Confident extractions go straight into the catalog; uncertain ones wait in the review queue.
+
+Seed entries describe the journal (`title`, `issn`, `publisher`); the agent finds and verifies
+its official author-guideline page itself (see [What's new](#-whats-new) and
+[`docs/journal-discovery.md`](docs/journal-discovery.md)).
 
 ---
 
@@ -300,3 +305,83 @@ And please don't upload files straight to `main` through the GitHub website. We'
 **Made with ☕ and a lot of rejected-then-reformatted papers.**
 
 </div>
+
+---
+
+## 🆕 What's new
+
+### 📈 Impact Factor (preference, with optional exclusion)
+
+Researchers can pick an **official Journal Impact Factor (JIF)** threshold on the preferences screen:
+`بدون تفضيل · 1+ · 2+ · 3+ · 5+`.
+
+| Choice | Effect |
+| --- | --- |
+| بدون تفضيل | No effect on filtering or ranking |
+| A threshold | Nothing is excluded. Journals that meet it get a small ranking bonus (+0.03, inside the existing 0.08 cap), so scope fit still decides the order |
+| Threshold + "استبعاد المجلات التي يقل معامل تأثيرها عن الحد المحدد" | Journals with a **known** JIF below the threshold are excluded |
+| JIF not available | Never excluded and no bonus. Shown as "غير متاح" |
+
+- Results and the compare dialog show the value, the JCR year and the source.
+- Only the official JIF is used, entered by hand from a licensed JCR export. No other metric is ever labelled "Impact Factor".
+
+```bash
+cd apps/api
+python -m db.import_impact_factors path/to/impact_factors.csv   # columns: journal_id,impact_factor,year,source
+```
+
+A row without a year or source is rejected. The two demo journals with values are labelled "Demo data (fictional)".
+
+### 🔎 Journal discovery: no more pasting guideline URLs
+
+`python -m db.run_agent` now finds each journal's official author-guideline page by itself. Seed entries only describe the journal:
+
+```json
+[
+  {"title": "PLOS ONE", "issn": "1932-6203", "publisher": "PLOS"},
+  {"title": "IEEE Access", "issn": "2169-3536", "publisher": "IEEE"}
+]
+```
+
+```bash
+cd apps/api
+python -m db.run_agent             # discover → extract → save (or send to review)
+python -m db.run_agent --dry-run   # discovery only: candidates and scores, no AI calls, no DB writes
+```
+
+1. **Identify the journal** from its ISSN or title, using OpenAlex and DOAJ.
+2. **Look for the guidelines page** on the journal's or publisher's **official domains only**: DOAJ's link, known publisher URL patterns, and "Guide for Authors"-style links on the homepage.
+3. **Verify each page** using signals such as the journal title, ISSN, publisher, guideline wording and the domain.
+4. **Decide:**
+   - **accept**: the requirements are extracted and saved.
+   - **review**: the requirements are extracted, but always go to the review queue.
+   - **fail**: a review item records why. The rest of the batch carries on.
+
+Other rules:
+- **No guessed URLs:** discovery never uses AI, so every URL comes from metadata or an official page and is checked before use.
+- **Manual fallback:** a `guidelines_url` (or `homepage_url`) in the seed entry is still accepted. The old `{name, publisher, source_url}` format still works.
+- **No duplicates:** journals are matched by ISSN, otherwise by title + publisher. Re-running updates the same record, and manual fields such as the Impact Factor are never overwritten.
+- **Polite fetching:** timeouts, per-site rate limits, robots.txt, retries, and an IPv4 fallback for broken IPv6 routes.
+
+Full details: [`docs/journal-discovery.md`](docs/journal-discovery.md).
+
+### 🧑‍⚖️ Review queue: re-running never loses review work
+
+| Previous review state | Re-running the agent |
+| --- | --- |
+| Approved | The new extraction goes to review. The approved version stays until a reviewer approves the refresh, which then updates the journal in place |
+| Edited (still pending) | Left alone, so the reviewer's edits win |
+| Rejected | A new pending item is created |
+
+Earlier decisions are kept in each review item's `history`. Requirement fields that a guidelines page never mentions no longer count as "low confidence". Only stated-but-uncertain fields send a journal to review.
+
+### ⚙️ New settings
+
+Add these to `apps/api/.env` (see `.env.example`):
+
+| Variable | Purpose |
+| --- | --- |
+| `OPENALEX_API_KEY` | Free key, required by OpenAlex since Feb 2026. Without it, discovery uses DOAJ and seed URLs only |
+| `WARRAQ_CONTACT_EMAIL` | Optional. Sent with discovery requests so sites can contact us |
+
+DOAJ needs no key. Claude costs are unchanged: about one extraction per journal, and none when discovery fails.
