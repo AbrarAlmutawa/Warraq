@@ -56,6 +56,7 @@ def spec_to_profile(spec: JournalRequirementSpec) -> JournalProfile:
         source_url=spec.source_url,
         review_days_avg=spec.review_speed_days_avg,
         indexes=spec.indexes,
+        impact_factor=spec.impact_factor,
     )
 
 
@@ -99,6 +100,9 @@ def spec_to_summary(spec: JournalRequirementSpec) -> JournalSummary:
         apc_usd=spec.apc_usd,
         review_days_avg=spec.review_speed_days_avg,
         indexes=spec.indexes,
+        impact_factor=spec.impact_factor,
+        impact_factor_year=spec.impact_factor_year,
+        impact_factor_source=spec.impact_factor_source,
         requirements_summary=requirements_summary(spec),
         source_url=spec.source_url,
         is_demo=spec.is_demo,

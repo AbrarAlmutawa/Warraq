@@ -39,6 +39,24 @@ export function formatReviewDays(days: number | null): string {
   return days === null ? NOT_PUBLISHED : `نحو ${days} يومًا`;
 }
 
+/* Shown when no official Impact Factor has been entered for a journal. */
+export const IMPACT_FACTOR_UNAVAILABLE = "غير متاح";
+
+/* Official Journal Impact Factor as entered (e.g. "3.4"); never rounded to look different. */
+export function formatImpactFactor(value: number | null): string {
+  return value === null ? IMPACT_FACTOR_UNAVAILABLE : String(value);
+}
+
+/* "2024 · Clarivate JCR": the JCR year and source shown with every Impact Factor; null when unavailable. */
+export function impactFactorProvenance(journal: {
+  impactFactor: number | null;
+  impactFactorYear: number | null;
+  impactFactorSource: string | null;
+}): string | null {
+  if (journal.impactFactor === null) return null;
+  return [journal.impactFactorYear, journal.impactFactorSource].filter((part) => part !== null).join(" · ") || null;
+}
+
 /* The matcher's 0–1 similarity, shown as published (two decimals). */
 export function formatSimilarityScore(score: number): string {
   return score.toFixed(2);

@@ -4,11 +4,13 @@ import {
   SCOPE_FIT,
   formatApc,
   formatCheckedDate,
+  formatImpactFactor,
   formatReviewDays,
   formatSimilarityScore,
+  impactFactorProvenance,
   indexLabels,
 } from "@/lib/journals/format";
-import { isFastEnough, isOpenAccessAvailable, isWithinBudget } from "@/lib/journals/filters";
+import { isFastEnough, isOpenAccessAvailable, isWithinBudget, meetsImpactFactor } from "@/lib/journals/filters";
 import type { JournalMatch } from "@/lib/journals/types";
 import type { JournalPreferences } from "@/lib/preferences/types";
 
@@ -215,6 +217,40 @@ export function JournalResultRow({
             )
           }
           note={indexes.length === 0 ? <UnknownNote /> : undefined}
+        />
+        <Fact
+          label="معامل التأثير"
+          value={
+            match.impactFactor === null ? (
+              formatImpactFactor(null)
+            ) : (
+              <>
+                <span dir="ltr" className="font-latin">
+                  {formatImpactFactor(match.impactFactor)}
+                </span>
+                {impactFactorProvenance(match) && (
+                  <span className="block text-xs font-normal text-muted">
+                    <span dir="ltr" className="font-latin">
+                      {impactFactorProvenance(match)}
+                    </span>
+                  </span>
+                )}
+              </>
+            )
+          }
+          note={
+            match.impactFactor === null ? (
+              <UnknownNote />
+            ) : (
+              preferences.minImpactFactor !== null && (
+                <PreferenceNote
+                  ok={meetsImpactFactor(match, preferences)}
+                  okText="يحقق الحد المفضّل"
+                  notText="أقل من الحد المفضّل"
+                />
+              )
+            )
+          }
         />
       </dl>
 

@@ -2,6 +2,7 @@ import { MultiChoiceGroup, SingleChoiceGroup } from "@/components/preferences/Ch
 import {
   APC_OPTIONS,
   ARTICLE_TYPE_OPTIONS,
+  IMPACT_FACTOR_OPTIONS,
   INDEX_OPTIONS,
   OPEN_ACCESS_OPTIONS,
   REVIEW_SPEED_OPTIONS,
@@ -85,6 +86,42 @@ export function PrioritiesSection({
           values={preferences.requiredIndexes}
           onToggle={toggleIndex}
         />
+        <div className="flex flex-col gap-3">
+          <SingleChoiceGroup
+            legend="معامل التأثير"
+            hint="حدّد الحد الأدنى المفضّل لمعامل التأثير (JIF). ستُفضَّل المجلات التي تحقق هذا الحد، دون استبعاد غيرها إلا إذا فعّلت خيار الاستبعاد."
+            name="impact-factor"
+            options={IMPACT_FACTOR_OPTIONS}
+            value={preferences.minImpactFactor}
+            onChange={(value) =>
+              onChange({
+                ...preferences,
+                minImpactFactor: value,
+                excludeBelowImpactFactor: value === null ? false : preferences.excludeBelowImpactFactor,
+              })
+            }
+          />
+          <label
+            className={`flex items-start gap-2 text-sm ${
+              preferences.minImpactFactor === null ? "cursor-not-allowed text-muted" : "cursor-pointer text-ink"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={preferences.excludeBelowImpactFactor}
+              disabled={preferences.minImpactFactor === null}
+              onChange={(event) => update("excludeBelowImpactFactor", event.target.checked)}
+              aria-describedby="impact-factor-exclude-hint"
+              className="mt-0.5 size-4 accent-ink"
+            />
+            <span>
+              استبعاد المجلات التي يقل معامل تأثيرها عن الحد المحدد
+              <span id="impact-factor-exclude-hint" className="mt-0.5 block text-xs text-muted">
+                لن تُستبعد المجلات التي لا تتوفر لها قيمة JIF
+              </span>
+            </span>
+          </label>
+        </div>
       </div>
     </section>
   );

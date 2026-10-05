@@ -94,7 +94,20 @@ This follows Warraq's principle of flagging instead of guessing.
 - *Preferred*: nothing is excluded; fully open-access journals get a small ranking bonus.
 - *Any*: no effect.
 
-**5. Thresholds (starting values, calibrate with real journals).**
+**5. Impact Factor.** Only the official Journal Impact Factor, entered manually from a
+licensed JCR export (`python -m db.import_impact_factors file.csv`, columns
+`journal_id,impact_factor,year,source`). It is never scraped, and no other metric (e.g. OpenAlex
+citedness) is shown as "Impact Factor". Value, year and source are always stored together
+(`impact_factor`, `impact_factor_year`, `impact_factor_source`); re-scraping keeps them.
+- *Any* (`min_impact_factor: null`): no effect on filtering or ranking.
+- *Threshold only* (e.g. 3+): nothing is excluded; journals with a known Impact Factor at or
+  above it get +0.03, inside the existing 0.08 bonus cap, so scope similarity stays dominant.
+- *Threshold + `exclude_below_impact_factor`*: journals with a **known** Impact Factor below it
+  are excluded. The researcher turns this on; a threshold alone never excludes.
+- Missing Impact Factor is never excluded and gets no bonus; `reasons` says
+  "Impact Factor not available; check before submitting".
+
+**6. Thresholds (starting values, calibrate with real journals).**
 - Scope fit: strong >= 0.70, good >= 0.50, otherwise possible (`models/adapters.py`).
 - Confidence: high >= 0.85, medium >= 0.60, otherwise low (`models/validation.py`).
 - A failed rule whose confidence is below 0.60 is shown as `review`, not `failed`.
@@ -111,6 +124,8 @@ This follows Warraq's principle of flagging instead of guessing.
 | Max review days (null = any) | `max_review_days` |
 | Required indexes | `required_indexes: ["scopus", "wos"]` |
 | Article type | `article_type` |
+| Impact Factor threshold (Any = null, 1+/2+/3+/5+) | `min_impact_factor` |
+| "Exclude journals below the selected Impact Factor" | `exclude_below_impact_factor: true` |
 
 ## 5. Endpoints (implemented)
 

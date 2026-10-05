@@ -11,5 +11,7 @@ export function neutralJournalPreferences(): JournalPreferences {
     openAccess: "any",
     maxReviewDays: null,
     requiredIndexes: [],
+    minImpactFactor: null,
+    excludeBelowImpactFactor: false,
   };
 }

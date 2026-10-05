@@ -64,6 +64,28 @@ export interface paths {
         patch: operations["edit_block_manuscripts__manuscript_id__blocks__block_id__patch"];
         trace?: never;
     };
+    "/manuscripts/{manuscript_id}/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Text
+         * @description Save what the researcher typed directly in the editor. The text is compared with the
+         *     current version and only the differences are written to the Word file (edited, added
+         *     and removed paragraphs). No change = no new revision.
+         */
+        put: operations["edit_text_manuscripts__manuscript_id__text_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/manuscripts/{manuscript_id}/apply-suggestion/{suggestion_id}": {
         parameters: {
             query?: never;
@@ -880,6 +902,12 @@ export interface components {
             review_days_avg?: number | null;
             /** Indexes */
             indexes?: string[];
+            /** Impact Factor */
+            impact_factor?: number | null;
+            /** Impact Factor Year */
+            impact_factor_year?: number | null;
+            /** Impact Factor Source */
+            impact_factor_source?: string | null;
             /** Requirements Summary */
             requirements_summary?: string[];
             /** Source Url */
@@ -993,6 +1021,12 @@ export interface components {
              * @default false
              */
             is_demo: boolean;
+            /** Impact Factor */
+            impact_factor?: number | null;
+            /** Impact Factor Year */
+            impact_factor_year?: number | null;
+            /** Impact Factor Source */
+            impact_factor_source?: string | null;
         };
         /**
          * JournalSummary
@@ -1019,6 +1053,12 @@ export interface components {
             review_days_avg?: number | null;
             /** Indexes */
             indexes?: string[];
+            /** Impact Factor */
+            impact_factor?: number | null;
+            /** Impact Factor Year */
+            impact_factor_year?: number | null;
+            /** Impact Factor Source */
+            impact_factor_source?: string | null;
             /** Requirements Summary */
             requirements_summary?: string[];
             /** Source Url */
@@ -1164,6 +1204,13 @@ export interface components {
             max_review_days?: number | null;
             /** Required Indexes */
             required_indexes?: string[];
+            /** Min Impact Factor */
+            min_impact_factor?: number | null;
+            /**
+             * Exclude Below Impact Factor
+             * @default false
+             */
+            exclude_below_impact_factor: boolean;
         };
         /** MatchRequest */
         MatchRequest: {
@@ -1391,6 +1438,13 @@ export interface components {
             /** Suggestions */
             suggestions: components["schemas"]["Suggestion"][];
         };
+        /** TextEdit */
+        TextEdit: {
+            /** Paragraphs */
+            paragraphs: string[];
+            /** Base Revision */
+            base_revision: number;
+        };
         /** ValidateRequest */
         ValidateRequest: {
             /** Manuscript Id */
@@ -1517,6 +1571,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["BlockEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManuscriptRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_text_manuscripts__manuscript_id__text_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                manuscript_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextEdit"];
             };
         };
         responses: {

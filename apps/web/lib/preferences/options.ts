@@ -33,6 +33,15 @@ export const REVIEW_SPEED_OPTIONS: ChoiceOption<number | null>[] = [
   { value: null, label: "لا يهم", summary: "السرعة لا تهم" },
 ];
 
+/* Official Journal Impact Factor threshold; a preference unless the researcher turns on exclusion. */
+export const IMPACT_FACTOR_OPTIONS: ChoiceOption<number | null>[] = [
+  { value: null, label: "بدون تفضيل", summary: "بدون تفضيل لمعامل التأثير" },
+  { value: 1, label: "1+", latin: true, summary: "معامل تأثير 1 أو أكثر" },
+  { value: 2, label: "2+", latin: true, summary: "معامل تأثير 2 أو أكثر" },
+  { value: 3, label: "3+", latin: true, summary: "معامل تأثير 3 أو أكثر" },
+  { value: 5, label: "5+", latin: true, summary: "معامل تأثير 5 أو أكثر" },
+];
+
 export const INDEX_OPTIONS: ChoiceOption<JournalIndex>[] = [
   { value: "scopus", label: "Scopus", latin: true },
   { value: "wos", label: "Web of Science", latin: true },

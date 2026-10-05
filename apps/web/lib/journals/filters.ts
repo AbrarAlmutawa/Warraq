@@ -49,6 +49,18 @@ export function isFastEnough(match: JournalMatch, preferences: JournalPreference
   );
 }
 
+/*
+ * Whether the journal meets the researcher's Impact Factor threshold. Unknown is not "below":
+ * the matcher never excludes a journal without an Impact Factor. Drives the result note only.
+ */
+export function meetsImpactFactor(match: JournalMatch, preferences: JournalPreferences): boolean {
+  return (
+    preferences.minImpactFactor === null ||
+    match.impactFactor === null ||
+    match.impactFactor >= preferences.minImpactFactor
+  );
+}
+
 /* A journal that publishes no indexing information is not excluded. */
 export function hasIndex(match: JournalMatch, index: JournalIndex): boolean {
   if (match.indexes.length === 0) return true;

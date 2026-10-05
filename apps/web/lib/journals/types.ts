@@ -25,6 +25,13 @@ export type JournalSummary = {
   reviewDaysAvg: number | null;
   /** Index ids as the backend sends them (e.g. "scopus", "wos"); empty = not published */
   indexes: string[];
+  /**
+   * Official Journal Impact Factor with its JCR year and source, as entered manually on the
+   * backend; all null = not available. Never another metric labelled as Impact Factor.
+   */
+  impactFactor: number | null;
+  impactFactorYear: number | null;
+  impactFactorSource: string | null;
 
   /** Short preview of key hard requirements, exactly as the backend sends them (English) */
   requirementsSummary: string[];

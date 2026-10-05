@@ -21,6 +21,8 @@ class JournalProfile(BaseModel):
     # Added by S4 (team decisions v1). Optional: None / [] means "not published".
     review_days_avg: int | None = None
     indexes: list[str] = Field(default_factory=list)
+    # Official Journal Impact Factor; None = not available.
+    impact_factor: float | None = None
 
 
 class MatchPreferences(BaseModel):
@@ -40,6 +42,11 @@ class MatchPreferences(BaseModel):
     max_review_days: int | None = None
     # Exclude journals whose published indexing lacks any of these (e.g. ["scopus", "wos"]).
     required_indexes: list[str] = Field(default_factory=list)
+    # Impact Factor threshold. On its own it is a preference (small ranking bonus);
+    # with exclude_below_impact_factor it also excludes journals whose known
+    # Impact Factor is below it. None = Impact Factor has no effect.
+    min_impact_factor: float | None = Field(default=None, ge=0)
+    exclude_below_impact_factor: bool = False
 
 
 class JournalMatch(BaseModel):

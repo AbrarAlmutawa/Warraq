@@ -80,6 +80,13 @@ class JournalRequirementSpec(BaseModel):
     # True for hand-made demo journals; False for journals scraped from real pages.
     is_demo: bool = False
 
+    # Official Journal Impact Factor, entered manually (db/import_impact_factors.py),
+    # never scraped or substituted with another metric. None = not available.
+    # Year and source are always set together with the value.
+    impact_factor: float | None = None
+    impact_factor_year: int | None = None  # JCR year, e.g. 2024
+    impact_factor_source: str | None = None  # e.g. "Clarivate JCR"
+
 
 class ReviewQueueItem(BaseModel):
     """

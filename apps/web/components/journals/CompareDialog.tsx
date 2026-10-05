@@ -7,8 +7,10 @@ import {
   OPEN_ACCESS_FULL,
   SCOPE_FIT,
   formatApc,
+  formatImpactFactor,
   formatReviewDays,
   formatSimilarityScore,
+  impactFactorProvenance,
   indexLabels,
 } from "@/lib/journals/format";
 import type { JournalMatch, JournalReadiness } from "@/lib/journals/types";
@@ -71,6 +73,29 @@ const ROWS: CompareRow[] = [
         </span>
       ) : (
         "غير معلنة"
+      );
+    },
+  },
+  {
+    label: "معامل التأثير",
+    render: (journal) => {
+      if (journal.impactFactor === null) return formatImpactFactor(null);
+      const provenance = impactFactorProvenance(journal);
+      return (
+        <>
+          <span className="block font-semibold">
+            <span dir="ltr" className="font-latin">
+              {formatImpactFactor(journal.impactFactor)}
+            </span>
+          </span>
+          {provenance && (
+            <span className="mt-1 block text-body">
+              <span dir="ltr" className="font-latin">
+                {provenance}
+              </span>
+            </span>
+          )}
+        </>
       );
     },
   },

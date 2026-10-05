@@ -107,8 +107,21 @@ function isPreferences(value: unknown): value is JournalPreferences {
     (OPEN_ACCESS_VALUES as readonly string[]).includes(value.openAccess) &&
     isNumberOrNull(value.maxReviewDays) &&
     isStringArray(value.requiredIndexes) &&
-    value.requiredIndexes.every((index) => (INDEX_VALUES as readonly string[]).includes(index))
+    value.requiredIndexes.every((index) => (INDEX_VALUES as readonly string[]).includes(index)) &&
+    // Impact Factor fields may be absent in sessions saved before they existed (see withPreferenceDefaults).
+    (value.minImpactFactor === undefined || isNumberOrNull(value.minImpactFactor)) &&
+    (value.excludeBelowImpactFactor === undefined || typeof value.excludeBelowImpactFactor === "boolean")
   );
+}
+
+/* Fills preference fields added after a session was saved with their neutral values. */
+function withPreferenceDefaults(preferences: JournalPreferences | null): JournalPreferences | null {
+  if (preferences === null) return null;
+  return {
+    ...preferences,
+    minImpactFactor: preferences.minImpactFactor ?? null,
+    excludeBelowImpactFactor: preferences.excludeBelowImpactFactor ?? false,
+  };
 }
 
 function isArticleTypeOrNull(value: unknown): value is ArticleType | null {
@@ -167,7 +180,13 @@ export function readSession(): WarraqSession | null {
   if (!raw) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
-    return isSession(parsed) ? { ...parsed, approvedJournalList: parsed.approvedJournalList ?? null } : null;
+    return isSession(parsed)
+      ? {
+          ...parsed,
+          preferences: withPreferenceDefaults(parsed.preferences),
+          approvedJournalList: parsed.approvedJournalList ?? null,
+        }
+      : null;
   } catch {
     return null;
   }
