@@ -26,7 +26,10 @@
     },
     "extraction_confidence": 1.0,
     "needs_human_review": false,
-    "is_demo": true
+    "is_demo": true,
+    "impact_factor": 3.4,
+    "impact_factor_year": 2024,
+    "impact_factor_source": "Demo data (fictional)"
   },
   {
     "journal_id": "demo-med-001",
@@ -55,7 +58,10 @@
     },
     "extraction_confidence": 1.0,
     "needs_human_review": false,
-    "is_demo": true
+    "is_demo": true,
+    "impact_factor": 1.8,
+    "impact_factor_year": 2024,
+    "impact_factor_source": "Demo data (fictional)"
   },
   {
     "journal_id": "demo-agri-001",

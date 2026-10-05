@@ -28,6 +28,10 @@ class JournalSummary(BaseModel):
     apc_usd: float | None = None
     review_days_avg: int | None = None
     indexes: list[str] = Field(default_factory=list)
+    # Official Journal Impact Factor with its JCR year and source; None = not available.
+    impact_factor: float | None = None
+    impact_factor_year: int | None = None
+    impact_factor_source: str | None = None
     requirements_summary: list[str] = Field(default_factory=list)
     source_url: str
     is_demo: bool = False

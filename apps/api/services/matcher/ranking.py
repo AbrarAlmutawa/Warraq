@@ -27,6 +27,12 @@ def preference_bonus(journal: JournalProfile, prefs: MatchPreferences) -> tuple[
         reasons.append("Review time not published; check before submitting")
     if prefs.required_indexes and not journal.indexes:
         reasons.append("Indexing not confirmed; check before submitting")
+    if prefs.min_impact_factor is not None:
+        if journal.impact_factor is None:
+            reasons.append("Impact Factor not available; check before submitting")
+        elif journal.impact_factor >= prefs.min_impact_factor:
+            bonus += 0.03
+            reasons.append("Impact Factor meets your preference")
     return min(bonus, 0.08), reasons
 
 

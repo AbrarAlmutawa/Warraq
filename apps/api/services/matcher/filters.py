@@ -41,6 +41,15 @@ def hard_constraint_failures(journal: JournalProfile, prefs: MatchPreferences) -
         if any(_norm(x) not in have for x in prefs.required_indexes):
             failures.append("required_indexes")
 
+    # Only when the researcher turned exclusion on; a threshold alone is a preference.
+    if (
+        prefs.min_impact_factor is not None
+        and prefs.exclude_below_impact_factor
+        and journal.impact_factor is not None
+        and journal.impact_factor < prefs.min_impact_factor
+    ):
+        failures.append("min_impact_factor")
+
     return failures
 
 

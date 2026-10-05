@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 from db import get_store
+from db.import_impact_factors import keep_manual_impact_factor
 from services.journal_agent.graph import build_graph
 
 DEFAULT_SOURCES = Path(__file__).parent / "seed" / "journal_sources.json"
@@ -31,7 +32,7 @@ def main() -> None:
     sources = json.loads(sources_path.read_text(encoding="utf-8"))
 
     store = get_store()
-    graph = build_graph(store.save_journal, store.save_review_item)
+    graph = build_graph(keep_manual_impact_factor(store), store.save_review_item)
 
     for source in sources:
         print(f"--- {source['name']} ---")

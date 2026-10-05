@@ -85,6 +85,9 @@ export function toJournalSummary(view: ApiJournalSummary): JournalSummary {
     openAccess: ACCESS_MODEL_FROM_API[view.access_model] ?? "unknown",
     reviewDaysAvg: view.review_days_avg ?? null,
     indexes: [...(view.indexes ?? [])],
+    impactFactor: view.impact_factor ?? null,
+    impactFactorYear: view.impact_factor_year ?? null,
+    impactFactorSource: view.impact_factor_source ?? null,
     requirementsSummary: [...(view.requirements_summary ?? [])],
     sourceUrl: view.source_url,
     sourceIsDemo: view.is_demo === true,
@@ -249,6 +252,9 @@ export function toApiArticleType(articleType: ArticleType | null): string | null
  * - Max review days (null = any)                    → max_review_days
  * - Required indexes (empty = no requirement)       → required_indexes
  * - Article type (null = no filter)                 → article_type
+ * - Impact Factor threshold (null = any)            → min_impact_factor (preference: ranking bonus)
+ * - "Exclude journals below" toggle                 → exclude_below_impact_factor (hard exclusion;
+ *                                                     only sent as true when a threshold is set)
  *
  * top_k, language, apc_currency and the preferred_* lists are not sent:
  * the backend defaults apply (see ApiMatchPreferencesRequest).
@@ -264,6 +270,8 @@ export function toApiMatchPreferences(
     max_review_days: preferences.maxReviewDays,
     required_indexes: [...preferences.requiredIndexes],
     article_type: toApiArticleType(articleType),
+    min_impact_factor: preferences.minImpactFactor,
+    exclude_below_impact_factor: preferences.minImpactFactor !== null && preferences.excludeBelowImpactFactor,
   };
 }
 /* ───────── Manuscript versions (editing) ───────── */

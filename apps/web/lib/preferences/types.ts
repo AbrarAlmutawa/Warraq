@@ -28,6 +28,13 @@ export type JournalPreferences = {
   maxReviewDays: number | null;
   /** Indexes the researcher selected; empty = no indexing preference */
   requiredIndexes: JournalIndex[];
+  /**
+   * Official Journal Impact Factor threshold; null = any (no effect).
+   * On its own it is a preference: journals meeting it get a small ranking bonus.
+   */
+  minImpactFactor: number | null;
+  /** True = also exclude journals whose known Impact Factor is below the threshold */
+  excludeBelowImpactFactor: boolean;
 };
 
 export type ChoiceOption<T> = {
